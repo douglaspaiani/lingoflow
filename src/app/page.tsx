@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Sparkles, Trophy, Flame, Star, Zap, Users, BarChart3, GraduationCap, CheckCircle2, Check, Server, ShieldCheck, HeartHandshake, Database, RefreshCw, History, Globe, Cpu, Smartphone, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
-
+import { ArrowRight, Sparkles, Trophy, Flame, Star, Zap, Users, BarChart3, GraduationCap, CheckCircle2, Check, Server, ShieldCheck, HeartHandshake, Database, RefreshCw, History, Globe, Cpu, Smartphone, ChevronLeft, ChevronRight, Lock, Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/components/Providers';
 
 export default function Escolas() {
   const [ciclo, setCiclo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
   const [activeScreen, setActiveScreen] = useState(0);
+  const { theme, toggleTheme } = useTheme();
 
   const screensData = [
     {
@@ -199,9 +200,17 @@ export default function Escolas() {
             <a href="#telas" className="hover:text-indigo-500 transition-colors">Telas</a>
             <a href="#planos" className="hover:text-purple-500 transition-colors">Preços</a>
           </div>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-2xl font-bold transition-all shadow-[0_4px_0_0_#1d4ed8] hover:shadow-[0_2px_0_0_#1d4ed8] hover:translate-y-[2px] active:translate-y-[4px] active:shadow-none">
-            Falar com Consultor
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-2xl font-bold transition-all shadow-[0_4px_0_0_#1d4ed8] hover:shadow-[0_2px_0_0_#1d4ed8] hover:translate-y-[2px] active:translate-y-[4px] active:shadow-none">
+              Falar com Consultor
+            </button>
+          </div>
         </div>
       </nav>
 

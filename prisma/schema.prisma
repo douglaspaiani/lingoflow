@@ -21,6 +21,7 @@ model User {
   level            Int      @default(1)
   xp               Int      @default(0)
   energy           Int      @default(5)
+  theme            String   @default("dark")
   classRoomId      String?
   classRoom        ClassRoom? @relation(fields: [classRoomId], references: [id])
   

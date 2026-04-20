@@ -6,8 +6,9 @@ import {
   Plus, Trash2, LineChart, Layout, Save, Sparkles, User as UserIcon, 
   Star, Settings, LogOut, ChevronRight, BookOpen, Layers, Edit3, 
   CheckCircle2, XCircle, ShieldCheck, Mail, Lock, Flame, Search,
-  ArrowLeft, AlertTriangle, X, Users, Presentation, Check, Hash, Battery
+  ArrowLeft, AlertTriangle, X, Users, Presentation, Check, Hash, Battery, Moon, Sun, Edit2
 } from 'lucide-react';
+import { useTheme } from '@/components/Providers';
 import { Level, AppData, Exercise, User, Lesson, AdminUser, Room } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,8 @@ const TAB_LABELS: Record<AdminTab, string> = {
 export default function Admin() {
   const [data, setData] = useState<AppData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const { theme, toggleTheme } = useTheme();
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -65,9 +68,11 @@ export default function Admin() {
         setAdminUser(JSON.parse(savedAdmin));
         setIsLoggedIn(true);
       } catch (e) {
+        console.error("Invalid admin session data");
         localStorage.removeItem('admin_session');
       }
     }
+    setIsCheckingSession(false);
   }, []);
 
   const fetchData = () => {
@@ -85,9 +90,9 @@ export default function Admin() {
       });
       if (res.ok) {
         const result = await res.json();
-        setAdminUser(result.admin);
+        setAdminUser(result.user);
         setIsLoggedIn(true);
-        localStorage.setItem('admin_session', JSON.stringify(result.admin));
+        localStorage.setItem('admin_session', JSON.stringify(result.user));
       } else {
         setLoginError('Acesso negado. Verifique email e senha.');
       }
@@ -184,6 +189,10 @@ export default function Admin() {
       setIsSaving(false);
     }
   };
+
+  if (isCheckingSession) {
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
+  }
 
   if (!isLoggedIn) {
     return (
@@ -300,7 +309,6 @@ export default function Admin() {
           <div className="flex items-center justify-between mb-12">
             <div>
               <h1 className="text-4xl font-display font-black text-slate-800 dark:text-slate-100 tracking-tight">{TAB_LABELS[activeTab]}</h1>
-              <p className="text-slate-400 font-bold mt-1">Bem-vindo de volta, controle total ativado.</p>
             </div>
             {isSaving && (
               <div className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase animate-pulse">
@@ -485,7 +493,7 @@ export default function Admin() {
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
                     <input 
                       type="text"
-                      placeholder="Buscar alunos por nome ou @..."
+                      placeholder="Buscar alunos por nome"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl py-4 pl-14 pr-6 font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 shadow-sm transition-all"
@@ -1353,7 +1361,7 @@ export default function Admin() {
                                     className="w-full bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-800/20 rounded-2xl py-4 px-6 font-bold text-green-600 dark:text-green-400 outline-none focus:border-green-500 shadow-inner"
                                    />
                                 </div>
-                                <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border-2 border-blue-100 dark:border-blue-800/20">
+                                 <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border-2 border-blue-100 dark:border-blue-800/20">
                                    <label className="text-xs font-black text-blue-500 uppercase tracking-widest shrink-0">XP:</label>
                                    <input 
                                      type="number"

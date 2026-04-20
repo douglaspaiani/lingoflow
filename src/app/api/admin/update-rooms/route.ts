@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../lib/prisma';
+import { prisma } from '../../../../lib/prisma';
 import * as jose from 'jose';
 import { cookies } from 'next/headers';
 
@@ -17,16 +17,28 @@ export async function POST(req: Request) {
 
     // Iterate through provided rooms and upsert
     for (const room of rooms) {
+      let finalCode = room.code;
+      const isNewRoom = room.id.startsWith('room-');
+
+      if (isNewRoom) {
+        let isUnique = false;
+        while (!isUnique) {
+          finalCode = Math.floor(10000 + Math.random() * 90000).toString();
+          const existing = await prisma.classRoom.findUnique({ where: { code: finalCode } });
+          if (!existing) isUnique = true;
+        }
+      }
+
       await prisma.classRoom.upsert({
         where: { id: room.id },
         update: {
           name: room.name,
-          code: room.code,
+          code: finalCode,
         },
         create: {
           id: room.id,
           name: room.name,
-          code: room.code,
+          code: finalCode,
           adminId: payload.id as string
         }
       });

@@ -1,5 +1,5 @@
 "use client";
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'motion/react';
@@ -10,7 +10,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
-  const { refreshData } = useUser();
+  const { refreshData, currentUser } = useUser();
+  
+  useEffect(() => {
+    if (currentUser) {
+      router.push('/app');
+    }
+  }, [currentUser, router]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();

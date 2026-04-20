@@ -3,20 +3,32 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { UserProvider } from '../contexts/UserContext';
 import { HelmetProvider } from 'react-helmet-async';
 
-const ThemeContext = createContext<{ theme: 'light' | 'dark', toggleTheme: () => void }>({ theme: 'light', toggleTheme: () => {} });
+const ThemeContext = createContext<{ theme: 'light' | 'dark', toggleTheme: () => void, setTheme: (t: 'light' | 'dark') => void }>({ theme: 'dark', toggleTheme: () => {}, setTheme: () => {} });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') setTheme(saved);
+    else {
+      setTheme('dark');
+      localStorage.setItem('theme', 'dark');
+    }
   }, []);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prev => {
+      const nextTheme = prev === 'light' ? 'dark' : 'light';
+      fetch('/api/update-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: nextTheme })
+      }).catch(err => console.error(err));
+      return nextTheme;
+    });
   };
 
   useEffect(() => {
@@ -30,7 +42,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       <UserProvider>
         <HelmetProvider>
           {children}

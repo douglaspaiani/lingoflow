@@ -28,6 +28,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (meRes.ok) {
         const { user } = await meRes.json();
         setCurrentUser(user);
+        
+        // Sync theme with database preference
+        if (user.theme && typeof window !== 'undefined') {
+          const currentTheme = localStorage.getItem('theme');
+          if (currentTheme !== user.theme) {
+            localStorage.setItem('theme', user.theme);
+            if (user.theme === 'dark') {
+              window.document.documentElement.classList.add('dark');
+            } else {
+              window.document.documentElement.classList.remove('dark');
+            }
+            // Trigger a re-render by dispatching an event if necessary, or just rely on layout
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
       } else {
         setCurrentUser(null);
       }
