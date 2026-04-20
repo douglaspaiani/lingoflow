@@ -1,8 +1,10 @@
+"use client";
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Sparkles, Trophy, Flame, Star, Zap, Users, BarChart3, GraduationCap, CheckCircle2, Check, Server, ShieldCheck, HeartHandshake, Database, RefreshCw, History, Globe, Cpu, Smartphone, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+
 
 export default function Escolas() {
   const [ciclo, setCiclo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
@@ -185,7 +187,7 @@ export default function Escolas() {
       <nav className="fixed top-0 left-0 right-0 h-20 z-50 transition-all duration-300 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-slate-200/50 dark:border-slate-800/50">
         <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <img src="/src/images/logo.png" alt="LingoFlow Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
+            <img src="/images/logo.png" alt="LingoFlow Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
             <span className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-500 to-emerald-700 dark:from-green-400 dark:to-emerald-500 tracking-tight pb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
               lingoflow
             </span>
@@ -246,7 +248,7 @@ export default function Escolas() {
                <div className="relative w-full h-full p-8 flex flex-col">
                   <div className="flex justify-between items-center mb-8">
                     <div className="flex items-center gap-3">
-                      <img src="/src/images/logo.png" alt="LingoFlow Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
+                      <img src="/images/logo.png" alt="LingoFlow Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
                       <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-500 to-emerald-700 dark:from-green-400 dark:to-emerald-500 tracking-tight pb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                         lingoflow
                       </span>
@@ -691,7 +693,7 @@ export default function Escolas() {
              <button className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-5 rounded-2xl font-black text-xl transition-all shadow-[0_6px_0_0_#1d4ed8] hover:shadow-[0_4px_0_0_#1d4ed8] hover:translate-y-[2px] active:translate-y-[6px] active:shadow-none">
                Solicitar Orçamento
              </button>
-             <Link to="/app" className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white border-2 border-slate-200 dark:border-slate-700 px-10 py-5 rounded-2xl font-black text-xl transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
+             <Link href="/app" className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white border-2 border-slate-200 dark:border-slate-700 px-10 py-5 rounded-2xl font-black text-xl transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
                Testar o App
              </Link>
           </div>
@@ -701,7 +703,7 @@ export default function Escolas() {
       <footer className="bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-12 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
-            <img src="/src/images/logo.png" alt="LingoFlow Logo" className="w-8 h-8 object-contain drop-shadow-sm" />
+            <img src="/images/logo.png" alt="LingoFlow Logo" className="w-8 h-8 object-contain drop-shadow-sm" />
             <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: "'Fredoka', sans-serif" }}>lingoflow</span>
           </div>
           <div className="text-slate-500 dark:text-slate-400 font-medium text-sm">

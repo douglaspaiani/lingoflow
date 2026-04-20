@@ -1,16 +1,18 @@
+"use client";
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+
 import { Check, Star, Lock, BookOpen, Flame, Battery } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { AppData, Level, User } from '../types';
-import { useUser } from '../contexts/UserContext';
+import { cn } from '@/lib/utils';
+import { AppData, Level, User } from '@/types';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Inicio() {
   const { data, currentUser } = useUser();
   const [toast, setToast] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [streakValue, setStreakValue] = useState<number>(0);
@@ -183,7 +185,7 @@ export default function Inicio() {
                                   if (currentUser.energy <= 0) {
                                     setToast("Cuidado! Você está sem energia. Aguarde ou peça bônus ao seu tutor!");
                                   } else {
-                                    navigate(`/licao/${lesson.id}`);
+                                    router.push(`/licao/${lesson.id}`);
                                   }
                                 }}
                                 className="w-full bg-white text-emerald-600 dark:text-emerald-500 font-black py-4 rounded-xl border-b-4 border-slate-200 hover:bg-slate-50 transition-all active:translate-y-1 active:border-b-0 uppercase tracking-widest text-xs"

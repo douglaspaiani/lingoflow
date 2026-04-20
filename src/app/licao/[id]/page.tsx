@@ -1,16 +1,18 @@
+"use client";
+import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate, useParams } from 'react-router-dom';
+
 import { X, CheckCircle2, AlertCircle, Volume2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
-import { AppData, Lesson, Exercise } from '../types';
-import { useUser } from '../contexts/UserContext';
+import { AppData, Lesson, Exercise } from '@/types';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Licao() {
   const { updateProgress } = useUser();
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams() as { id: string };
+  const router = useRouter();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,7 +45,7 @@ export default function Licao() {
   };
 
   const handleConfirmExit = () => {
-    navigate('/');
+    router.push('/');
   };
 
   const handleCheck = () => {
@@ -86,7 +88,7 @@ export default function Licao() {
         });
       } catch (err) {
         alert(err instanceof Error ? err.message : 'Erro ao salvar progresso');
-        navigate('/');
+        router.push('/');
       }
     }
   };
@@ -116,7 +118,7 @@ export default function Licao() {
         </div>
 
         <button 
-          onClick={() => navigate('/')}
+          onClick={() => router.push('/')}
           className="w-full max-w-sm bg-green-500 hover:bg-green-400 text-white font-black py-4 rounded-2xl border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all text-xl uppercase tracking-widest"
         >
           Continuar

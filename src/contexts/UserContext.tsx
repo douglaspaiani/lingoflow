@@ -1,3 +1,4 @@
+"use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AppData } from '../types';
 
@@ -6,6 +7,7 @@ interface UserContextType {
   data: AppData | null;
   refreshData: () => Promise<void>;
   updateProgress: (xpToAdd: number, lessonId?: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -16,12 +18,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = async () => {
     try {
+      // Fetch Global Data
       const res = await fetch('/api/data');
       const d = await res.json();
       setData(d);
-      // For now, hardcoding user 1 as the current user
-      const user = d.users.find((u: any) => u.id === '1');
-      setCurrentUser(user || null);
+
+      // Fetch Logged-in User
+      const meRes = await fetch('/api/auth/me');
+      if (meRes.ok) {
+        const { user } = await meRes.json();
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
     }
@@ -31,20 +40,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     refreshData();
   }, []);
 
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setCurrentUser(null);
+    window.location.href = '/login';
+  };
+
   const updateProgress = async (xpToAdd: number, lessonId?: string) => {
     if (!currentUser) return;
     try {
       const res = await fetch('/api/update-progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, xpToAdd, lessonId })
+        body: JSON.stringify({ xpToAdd, lessonId })
       });
       if (res.ok) {
         const updatedUser = await res.json();
         setCurrentUser(updatedUser);
-        // Also refresh global data to sync rankings etc
-        const dRes = await fetch('/api/data');
-        setData(await dRes.json());
+        
+        // Refresh global data silently
+        fetch('/api/data').then(r => r.json()).then(setData);
       } else {
         const err = await res.json();
         throw new Error(err.error || 'Erro ao atualizar progresso');
@@ -56,7 +71,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ currentUser, data, refreshData, updateProgress }}>
+    <UserContext.Provider value={{ currentUser, data, refreshData, updateProgress, logout }}>
       {children}
     </UserContext.Provider>
   );

@@ -1,9 +1,11 @@
+"use client";
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+
 import { Trophy, Medal, Flame } from 'lucide-react';
-import { AppData, User } from '../types';
-import { cn } from '../lib/utils';
+import { AppData, User } from '@/types';
+import { cn } from '@/lib/utils';
 
 export default function Ranking() {
   const [globalUsers, setGlobalUsers] = useState<User[]>([]);
@@ -112,7 +114,7 @@ export default function Ranking() {
             transition={{ delay: 0.2, duration: 0.8 }}
             className="flex-1 flex flex-col items-center justify-end max-w-[100px]"
           >
-            <Link to={`/perfil/${users[1].id}`} className="flex flex-col items-center w-full">
+            <Link href={`/perfil/${users[1].id}`} className="flex flex-col items-center w-full">
               <div className="h-14 w-14 rounded-2xl border-4 border-slate-200 dark:border-slate-800 overflow-hidden mb-2 shrink-0 shadow-lg">
                 <img 
                   src={users[1].avatar || `https://picsum.photos/seed/user${users[1].id}/100`} 
@@ -139,7 +141,7 @@ export default function Ranking() {
             transition={{ duration: 0.8 }}
             className="flex-1 flex flex-col items-center justify-end max-w-[120px]"
           >
-             <Link to={`/perfil/${users[0].id}`} className="flex flex-col items-center w-full">
+             <Link href={`/perfil/${users[0].id}`} className="flex flex-col items-center w-full">
                <motion.div 
                  animate={{ y: [0, -8, 0] }}
                  transition={{ repeat: Infinity, duration: 3 }}
@@ -171,7 +173,7 @@ export default function Ranking() {
             transition={{ delay: 0.4, duration: 0.8 }}
             className="flex-1 flex flex-col items-center justify-end max-w-[100px]"
           >
-            <Link to={`/perfil/${users[2].id}`} className="flex flex-col items-center w-full">
+            <Link href={`/perfil/${users[2].id}`} className="flex flex-col items-center w-full">
               <div className="h-12 w-12 rounded-2xl border-4 border-amber-600/30 dark:border-amber-900/30 overflow-hidden mb-2 shrink-0 shadow-sm">
                 <img 
                   src={users[2].avatar || `https://picsum.photos/seed/user${users[2].id}/100`} 
@@ -197,7 +199,7 @@ export default function Ranking() {
             {users.slice(3).map((user, index) => (
               <Link 
                 key={user.id} 
-                to={`/perfil/${user.id}`}
+                href={`/perfil/${user.id}`}
                 className={cn(
                   "flex items-center gap-4 p-5 border-b last:border-0 transition-colors border-slate-100 dark:border-slate-800 group",
                   user.id === '1' ? "bg-blue-50/50 dark:bg-blue-900/10" : "hover:bg-gray-50 dark:hover:bg-slate-800/50"
@@ -239,7 +241,7 @@ export default function Ranking() {
             <h3 className="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Sozinho no topo?</h3>
             <p className="text-slate-500 dark:text-slate-400 font-bold mb-8">Siga seus amigos para ver como eles estão se saindo e disputar o ranking!</p>
             <Link 
-              to="/amigos" 
+              href="/amigos" 
               className="inline-block bg-blue-500 hover:bg-blue-400 text-white font-black py-4 px-8 rounded-2xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-sm"
             >
               Encontrar Amigos

@@ -1,13 +1,15 @@
+"use client";
+import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useParams, useNavigate } from 'react-router-dom';
+
 import { Calendar, Flame, Target, Star, MoreHorizontal, User as UserIcon, Camera, UserPlus, UserMinus, Pencil } from 'lucide-react';
-import { User, AppData } from '../types';
-import { cn } from '../lib/utils';
+import { User, AppData } from '@/types';
+import { cn } from '@/lib/utils';
 
 export default function Perfil() {
-  const { userId } = useParams();
-  const navigate = useNavigate();
+  const { userId } = useParams() as { userId: string };
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showOptions, setShowOptions] = useState(false);
@@ -125,7 +127,7 @@ export default function Perfil() {
                     <button
                       onClick={() => {
                         setShowOptions(false);
-                        navigate('/editar-perfil');
+                        router.push('/editar-perfil');
                       }}
                       className="w-full px-4 py-3 text-left font-black text-xs uppercase tracking-widest text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors"
                     >

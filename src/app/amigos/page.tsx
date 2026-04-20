@@ -1,9 +1,11 @@
+"use client";
+import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserPlus, UserMinus, Search, Users, Trophy, Star } from 'lucide-react';
-import { AppData, User } from '../types';
-import { cn } from '../lib/utils';
-import { Link } from 'react-router-dom';
+import { AppData, User } from '@/types';
+import { cn } from '@/lib/utils';
+
 
 export default function Amigos() {
   const [data, setData] = useState<AppData | null>(null);
@@ -137,7 +139,7 @@ function UserCard({ user, isFollowing, onToggleFollow }: UserCardProps) {
       layout
       className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-blue-200 dark:hover:border-blue-900/40 transition-all shadow-sm"
     >
-      <Link to={`/perfil/${user.id}`} className="flex items-center gap-4">
+      <Link href={`/perfil/${user.id}`} className="flex items-center gap-4">
         <div className="h-16 w-16 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-200 dark:border-slate-800 shrink-0">
           <img 
             src={user.avatar || `https://picsum.photos/seed/${user.id}/200`} 

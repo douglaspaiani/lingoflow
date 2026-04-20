@@ -1,3 +1,5 @@
+"use client";
+import Link from 'next/link';
 import { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -6,9 +8,9 @@ import {
   CheckCircle2, XCircle, ShieldCheck, Mail, Lock, Flame, Search,
   ArrowLeft, AlertTriangle, X, Users, Presentation, Check, Hash, Battery
 } from 'lucide-react';
-import { Level, AppData, Exercise, User, Lesson, AdminUser, Room } from '../types';
+import { Level, AppData, Exercise, User, Lesson, AdminUser, Room } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 type AdminTab = 'dashboard' | 'content' | 'users' | 'rooms' | 'admins' | 'energy';
 type AdminSubview = 'list' | 'add' | 'edit';
@@ -58,9 +60,13 @@ export default function Admin() {
   useEffect(() => {
     fetchData();
     const savedAdmin = localStorage.getItem('admin_session');
-    if (savedAdmin) {
-      setAdminUser(JSON.parse(savedAdmin));
-      setIsLoggedIn(true);
+    if (savedAdmin && savedAdmin !== 'undefined') {
+      try {
+        setAdminUser(JSON.parse(savedAdmin));
+        setIsLoggedIn(true);
+      } catch (e) {
+        localStorage.removeItem('admin_session');
+      }
     }
   }, []);
 
@@ -72,7 +78,7 @@ export default function Admin() {
     e.preventDefault();
     setLoginError('');
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword })
@@ -507,8 +513,8 @@ export default function Admin() {
                             <tr key={u.id} className="border-b last:border-0 border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                <td className="px-8 py-6">
                                   <div className="flex items-center gap-4">
-                                     <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden border-2 border-slate-100 dark:border-slate-800">
-                                        <img src={u.avatar} alt="" className="w-full h-full object-cover" />
+                                     <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center">
+                                        {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : <UserIcon className="h-5 w-5 text-slate-400" />}
                                      </div>
                                      <div>
                                         <p className="font-black text-slate-800 dark:text-slate-100">{u.name}</p>
@@ -628,7 +634,7 @@ export default function Admin() {
                                 if (!s) return null;
                                 return (
                                   <div key={sid} className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center gap-2 group/tag">
-                                     <img src={s.avatar} className="h-4 w-4 rounded-full object-cover" />
+                                     {s.avatar ? <img src={s.avatar} className="h-4 w-4 rounded-full object-cover" /> : <div className="h-4 w-4 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center"><UserIcon className="h-2 w-2 text-slate-400" /></div>}
                                      <span className="text-[10px] font-black uppercase text-slate-500">{s.name}</span>
                                      <button 
                                       onClick={() => {
@@ -755,8 +761,8 @@ export default function Admin() {
                             <tr key={u.id} className="border-b last:border-0 border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                <td className="px-8 py-6">
                                   <div className="flex items-center gap-4">
-                                     <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden border-2 border-slate-100 dark:border-slate-800">
-                                        <img src={u.avatar} alt="" className="w-full h-full object-cover" />
+                                     <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center">
+                                        {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : <UserIcon className="h-5 w-5 text-slate-400" />}
                                      </div>
                                      <p className="font-black text-slate-800 dark:text-slate-100 text-sm">{u.name}</p>
                                   </div>
@@ -1040,7 +1046,7 @@ export default function Admin() {
                           )}>
                              {isSelected && <Check className="h-4 w-4 text-white" />}
                           </div>
-                          <img src={u.avatar} className="h-10 w-10 rounded-xl object-cover" />
+                          {u.avatar ? <img src={u.avatar} className="h-10 w-10 rounded-xl object-cover" /> : <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><UserIcon className="h-5 w-5 text-slate-400" /></div>}
                           <div className="text-left">
                             <p className="font-black text-slate-800 dark:text-slate-100 text-sm">{u.name}</p>
                             <p className="text-xs font-bold text-slate-400">@{u.username}</p>

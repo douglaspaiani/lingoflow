@@ -1,12 +1,14 @@
+"use client";
+import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+
 import { ArrowLeft, Save, AtSign, User as UserIcon } from 'lucide-react';
-import { User, AppData } from '../types';
-import { cn } from '../lib/utils';
+import { User, AppData } from '@/types';
+import { cn } from '@/lib/utils';
 
 export default function EditarPerfil() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -47,7 +49,7 @@ export default function EditarPerfil() {
         body: JSON.stringify({ userId: '1', name, username })
       });
       if (res.ok) {
-        navigate('/perfil');
+        router.push('/perfil');
       }
     } catch (err) {
       console.error(err);
@@ -68,7 +70,7 @@ export default function EditarPerfil() {
     >
       <div className="flex items-center gap-4 py-8 mb-8">
         <button 
-          onClick={() => navigate('/perfil')}
+          onClick={() => router.push('/perfil')}
           className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-500 shadow-sm hover:scale-105 transition-transform"
         >
           <ArrowLeft className="h-6 w-6" />
