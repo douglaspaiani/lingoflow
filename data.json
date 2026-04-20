@@ -1,0 +1,418 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "name": "Douglas",
+      "username": "douglaspaiani",
+      "avatar": "https://picsum.photos/seed/douglas/200",
+      "coverPhoto": "https://picsum.photos/seed/douglas_cover/800/400",
+      "points": 1305,
+      "streak": 6,
+      "level": 3,
+      "xp": 505,
+      "completedLessons": [
+        "l1",
+        "l1-2"
+      ],
+      "following": [
+        "5",
+        "2"
+      ],
+      "followers": [],
+      "lastActivityDate": "2026-04-18",
+      "energy": 4
+    },
+    {
+      "id": "2",
+      "name": "Maria",
+      "username": "maria_study",
+      "avatar": "https://picsum.photos/seed/maria/200",
+      "coverPhoto": "https://picsum.photos/seed/maria_cover/800/400",
+      "points": 980,
+      "streak": 2,
+      "level": 2,
+      "xp": 120,
+      "completedLessons": [],
+      "following": [],
+      "followers": [
+        "1"
+      ],
+      "energy": 5
+    },
+    {
+      "id": "3",
+      "name": "João",
+      "username": "joao_polyglot",
+      "avatar": "https://picsum.photos/seed/joao/200",
+      "coverPhoto": "https://picsum.photos/seed/joao_cover/800/400",
+      "points": 2100,
+      "streak": 15,
+      "level": 5,
+      "xp": 800,
+      "completedLessons": [
+        "l1",
+        "l2"
+      ],
+      "following": [],
+      "followers": [],
+      "energy": 5
+    },
+    {
+      "id": "4",
+      "name": "Ana",
+      "username": "ana_learning",
+      "avatar": "https://picsum.photos/seed/ana/200",
+      "points": 850,
+      "streak": 3,
+      "level": 2,
+      "xp": 350,
+      "completedLessons": [],
+      "following": [],
+      "followers": [],
+      "energy": 5
+    },
+    {
+      "id": "5",
+      "name": "Carlos",
+      "username": "carlos_br",
+      "avatar": "https://picsum.photos/seed/carlos/200",
+      "points": 720,
+      "streak": 1,
+      "level": 2,
+      "xp": 220,
+      "following": [],
+      "followers": [
+        "1"
+      ],
+      "energy": 5
+    },
+    {
+      "id": "6",
+      "name": "Beatriz",
+      "username": "bia_langs",
+      "avatar": "https://picsum.photos/seed/bia/200",
+      "points": 600,
+      "streak": 7,
+      "level": 1,
+      "xp": 400,
+      "following": [],
+      "followers": [],
+      "energy": 5
+    },
+    {
+      "id": "7",
+      "name": "Pedro",
+      "username": "ph_study",
+      "avatar": "https://picsum.photos/seed/pedro/200",
+      "points": 450,
+      "streak": 0,
+      "level": 1,
+      "xp": 150,
+      "following": [],
+      "followers": [],
+      "energy": 5
+    }
+  ],
+  "levels": [
+    {
+      "id": "1",
+      "title": "Saudações & Básico",
+      "description": "Aprenda o básico de como se apresentar.",
+      "difficulty": 1,
+      "lessons": [
+        {
+          "id": "l1",
+          "title": "Olá e Tchau",
+          "exercises": [
+            {
+              "id": "e1",
+              "type": "translate",
+              "question": "How are you?",
+              "answer": "Como você está?",
+              "options": [
+                "Como está você?",
+                "Oi tudo bem?",
+                "Como você está?",
+                "Qual seu nome?"
+              ]
+            },
+            {
+              "id": "e2",
+              "type": "select",
+              "question": "Hello",
+              "answer": "Olá",
+              "options": [
+                "Olá",
+                "Tchau",
+                "Bom dia",
+                "Noite"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l1-2",
+          "title": "Meu Nome É...",
+          "exercises": [
+            {
+              "id": "e1-2",
+              "type": "translate",
+              "question": "What is your name?",
+              "answer": "Qual é o seu nome?",
+              "options": [
+                "Como você está?",
+                "Qual é o seu nome?",
+                "De onde você é?",
+                "Tudo bem?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l1-3",
+          "title": "Prazer em Conhecer",
+          "exercises": [
+            {
+              "id": "e1-3",
+              "type": "select",
+              "question": "Nice to meet you",
+              "answer": "Prazer em conhecê-lo",
+              "options": [
+                "Prazer em conhecê-lo",
+                "Tchau",
+                "Até logo",
+                "Oi"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l1-4",
+          "title": "Contando até Cinco",
+          "exercises": [
+            {
+              "id": "e1-4",
+              "type": "translate",
+              "question": "One, two, three",
+              "answer": "Um, dois, três",
+              "options": [
+                "Um, dois, três",
+                "Quatro, cinco, seis",
+                "Sete, oito, nove",
+                "Dez"
+              ]
+            },
+            {
+              "id": "e1-4-2",
+              "type": "select",
+              "question": "Five",
+              "answer": "Cinco",
+              "options": [
+                "Um",
+                "Dois",
+                "Três",
+                "Cinco"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l1-5",
+          "title": "Cores Primárias",
+          "exercises": [
+            {
+              "id": "e1-5",
+              "type": "select",
+              "question": "Blue",
+              "answer": "Azul",
+              "options": [
+                "Verde",
+                "Amarelo",
+                "Azul",
+                "Vermelho"
+              ]
+            },
+            {
+              "id": "e1-5-2",
+              "type": "translate",
+              "question": "The red apple",
+              "answer": "A maçã vermelha",
+              "options": [
+                "A maçã verde",
+                "A maçã vermelha",
+                "O carro azul",
+                "O sol amarelo"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l1-6",
+          "title": "Família Básico",
+          "exercises": [
+            {
+              "id": "e1-6",
+              "type": "translate",
+              "question": "My father",
+              "answer": "Meu pai",
+              "options": [
+                "Minha mãe",
+                "Meu pai",
+                "Meu irmão",
+                "Minha irmã"
+              ]
+            },
+            {
+              "id": "e1-6-2",
+              "type": "select",
+              "question": "Mother",
+              "answer": "Mãe",
+              "options": [
+                "Pai",
+                "Mãe",
+                "Avó",
+                "Filho"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Viagem & Direções",
+      "description": "Essencial para quem vai para fora.",
+      "difficulty": 2,
+      "lessons": [
+        {
+          "id": "l2",
+          "title": "No Aeroporto",
+          "exercises": [
+            {
+              "id": "e3",
+              "type": "translate",
+              "question": "Where is my passport?",
+              "answer": "Onde está meu passaporte?",
+              "options": [
+                "Cadê minha mala?",
+                "Onde está meu passaporte?",
+                "Quero um café",
+                "Onde fica o hotel?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l2-2",
+          "title": "Pedindo Informações",
+          "exercises": [
+            {
+              "id": "e3-2",
+              "type": "translate",
+              "question": "Excuse me",
+              "answer": "Com licença",
+              "options": [
+                "Obrigado",
+                "Desculpe",
+                "Com licença",
+                "Por favor"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l2-3",
+          "title": "Onde fica o Banheiro?",
+          "exercises": [
+            {
+              "id": "e3-3",
+              "type": "select",
+              "question": "Restroom",
+              "answer": "Banheiro",
+              "options": [
+                "Banheiro",
+                "Restaurante",
+                "Hotel",
+                "Rua"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l2-4",
+          "title": "Pegando um Táxi",
+          "exercises": [
+            {
+              "id": "e3-4",
+              "type": "translate",
+              "question": "Go to the hotel, please",
+              "answer": "Vá para o hotel, por favor",
+              "options": [
+                "Vá para a rua",
+                "Vá para o hotel, por favor",
+                "Onde fica o hotel?",
+                "Táxi!"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Restaurante & Comida",
+      "description": "Não passe fome em outro país!",
+      "difficulty": 3,
+      "lessons": [
+        {
+          "id": "l3-1",
+          "title": "Pedindo o Menu",
+          "exercises": [
+            {
+              "id": "e4-1",
+              "type": "translate",
+              "question": "The menu, please",
+              "answer": "O menu, por favor",
+              "options": [
+                "A conta, por favor",
+                "O menu, por favor",
+                "Quero água",
+                "Café?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "l3-2",
+          "title": "Bebidas Tropicais",
+          "exercises": [
+            {
+              "id": "e4-2",
+              "type": "select",
+              "question": "Orange Juice",
+              "answer": "Suco de Laranja",
+              "options": [
+                "Suco de Uva",
+                "Água Mineral",
+                "Suco de Laranja",
+                "Cerveja"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "admins": [
+    {
+      "id": "admin1",
+      "email": "admin@app.com",
+      "password": "admin",
+      "name": "Super Admin"
+    }
+  ],
+  "rooms": [],
+  "settings": {
+    "defaultDailyEnergy": 5
+  }
+}
