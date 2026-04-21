@@ -5,11 +5,15 @@ import { AnimatePresence } from 'motion/react';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLesson = pathname?.startsWith('/licao');
+  const isJogo = pathname?.startsWith('/jogo');
   const isAdmin = pathname?.startsWith('/admin');
   const isEscolas = pathname === '/';
-  const isAuth = pathname?.startsWith('/login') || pathname?.startsWith('/register');
+  const isAuth =
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/register') ||
+    pathname?.startsWith('/teacher');
 
-  if (isAdmin || isLesson || isEscolas || isAuth) {
+  if (isAdmin || isLesson || isJogo || isEscolas || isAuth) {
     return (
       <AnimatePresence mode="wait">
         {children}

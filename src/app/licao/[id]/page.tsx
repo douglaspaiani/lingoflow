@@ -10,7 +10,7 @@ import { AppData, Lesson, Exercise } from '@/types';
 import { useUser } from '@/contexts/UserContext';
 
 export default function Licao() {
-  const { updateProgress } = useUser();
+  const { updateProgress, currentUser } = useUser();
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -21,20 +21,124 @@ export default function Licao() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [finished, setFinished] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [carregandoLicao, setCarregandoLicao] = useState(true);
+  const [mensagemLicao, setMensagemLicao] = useState('');
+  const [totalAcertosLicao, setTotalAcertosLicao] = useState(0);
+  const [totalErrosLicao, setTotalErrosLicao] = useState(0);
+
+  const alunoSemEnergia =
+    (currentUser?.role || '').toUpperCase() === 'ALUNO' &&
+    Number(currentUser?.energy || 0) <= 0;
 
   useEffect(() => {
-    fetch('/api/data')
-      .then(res => res.json())
-      .then((data: AppData) => {
-        const found = data.levels.flatMap(l => l.lessons).find(l => l.id === id);
-        if (found) {
-          setLesson(found);
-          setSessionExercises(found.exercises);
+    let ativo = true;
+
+    const carregarLicao = async () => {
+      setCarregandoLicao(true);
+      setMensagemLicao('');
+      try {
+        const resposta = await fetch('/api/data', { cache: 'no-store' });
+        const data = await resposta.json() as AppData;
+        const licaoEncontrada = data.levels.flatMap((nivel) => nivel.lessons).find((licao) => licao.id === id);
+
+        if (!ativo) return;
+
+        if (!licaoEncontrada) {
+          setMensagemLicao('Lição não encontrada.');
+          return;
         }
-      });
+
+        setLesson(licaoEncontrada);
+        setSessionExercises(licaoEncontrada.exercises || []);
+        setCurrentIndex(0);
+        setSelectedOption(null);
+        setIsAnswered(false);
+        setIsCorrect(false);
+        setFinished(false);
+        setTotalAcertosLicao(0);
+        setTotalErrosLicao(0);
+      } catch (erro) {
+        console.error(erro);
+        if (ativo) {
+          setMensagemLicao('Erro ao carregar lição. Tente novamente.');
+        }
+      } finally {
+        if (ativo) {
+          setCarregandoLicao(false);
+        }
+      }
+    };
+
+    carregarLicao();
+
+    return () => {
+      ativo = false;
+    };
   }, [id]);
 
-  if (!lesson || sessionExercises.length === 0) return null;
+  if (carregandoLicao) {
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-slate-950 flex flex-col items-center justify-center gap-4 z-50">
+        <div className="h-16 w-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-black uppercase tracking-widest text-green-500">Carregando lição...</p>
+      </div>
+    );
+  }
+
+  if (!lesson) {
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-slate-950 flex items-center justify-center p-6 z-50">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 text-center shadow-xl">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Ops!</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mb-8">{mensagemLicao || 'Não foi possível abrir a lição.'}</p>
+          <button
+            onClick={() => router.push('/app')}
+            className="w-full bg-blue-500 hover:bg-blue-400 text-white font-black py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest"
+          >
+            Voltar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionExercises.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-slate-950 flex items-center justify-center p-6 z-50">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 text-center shadow-xl">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Lição Sem Exercícios</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mb-8">
+            Essa lição foi criada no painel, mas ainda não possui exercícios cadastrados.
+          </p>
+          <button
+            onClick={() => router.push('/app')}
+            className="w-full bg-blue-500 hover:bg-blue-400 text-white font-black py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest"
+          >
+            Voltar ao Mapa
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (alunoSemEnergia) {
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-slate-950 flex items-center justify-center p-6 z-50">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 text-center shadow-xl">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Sem energia</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mb-8">
+            Você não tem energia suficiente para iniciar esta lição agora.
+          </p>
+          <button
+            onClick={() => router.push('/app')}
+            className="w-full bg-blue-500 hover:bg-blue-400 text-white font-black py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest"
+          >
+            Voltar ao app
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const currentExercise = sessionExercises[currentIndex];
   // Progress is based on the current position relative to the total session length
@@ -45,7 +149,7 @@ export default function Licao() {
   };
 
   const handleConfirmExit = () => {
-    router.push('/');
+    router.push('/app');
   };
 
   const handleCheck = () => {
@@ -60,6 +164,11 @@ export default function Licao() {
   };
 
   const handleNext = async () => {
+    const totalAcertosAtualizado = totalAcertosLicao + (isCorrect ? 1 : 0);
+    const totalErrosAtualizado = totalErrosLicao + (isCorrect ? 0 : 1);
+    setTotalAcertosLicao(totalAcertosAtualizado);
+    setTotalErrosLicao(totalErrosAtualizado);
+
     if (!isCorrect) {
       // Se errou, adiciona o exercício atual ao final da lista
       setSessionExercises(prev => [...prev, { ...currentExercise, id: `${currentExercise.id}-retry-${Date.now()}` }]);
@@ -79,7 +188,10 @@ export default function Licao() {
       const totalXp = sessionExercises.reduce((acc, ex) => acc + (ex.xp || 10), 0);
       
       try {
-        await updateProgress(totalXp, id);
+        await updateProgress(totalXp, id, {
+          acertos: totalAcertosAtualizado,
+          erros: totalErrosAtualizado
+        });
         setFinished(true);
         confetti({
           particleCount: 150,
@@ -87,8 +199,12 @@ export default function Licao() {
           origin: { y: 0.6 }
         });
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Erro ao salvar progresso');
-        router.push('/');
+        const mensagemErro = err instanceof Error ? err.message : 'Erro ao salvar progresso';
+        const erroSemEnergia = mensagemErro.toLowerCase().includes('sem energia suficiente');
+        if (!erroSemEnergia) {
+          alert(mensagemErro);
+        }
+        router.push('/app');
       }
     }
   };
@@ -190,15 +306,25 @@ export default function Licao() {
               isAnswered={isAnswered}
             />
           ) : currentExercise.type === 'reorder' ? (
-            <ReorderGame 
-              answer={currentExercise.answer}
-              options={currentExercise.options || []}
-              onAnswer={(assembled) => {
-                setSelectedOption(assembled);
-              }}
-              isAnswered={isAnswered}
-              isCorrect={isCorrect}
-            />
+            <>
+              <div className="mb-8 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-6 shadow-sm">
+                <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">
+                  Frase da questão
+                </p>
+                <p className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-tight">
+                  {currentExercise.question?.trim() || 'Frase indisponível para esta questão.'}
+                </p>
+              </div>
+              <ReorderGame 
+                answer={currentExercise.answer}
+                options={currentExercise.options || []}
+                onAnswer={(assembled) => {
+                  setSelectedOption(assembled);
+                }}
+                isAnswered={isAnswered}
+                isCorrect={isCorrect}
+              />
+            </>
           ) : (
             <>
               <div className="flex items-start gap-4 mb-12">

@@ -16,9 +16,18 @@ export default function RegisterPage() {
   const { refreshData, currentUser } = useUser();
 
   useEffect(() => {
-    if (currentUser) {
-      router.push('/app');
+    if (!currentUser) return;
+
+    const papelUsuarioAtual = (currentUser.role || '').toUpperCase();
+    const sessaoAdminVirtual = papelUsuarioAtual === 'ADMIN' && String(currentUser.id || '').startsWith('admin-');
+    if (sessaoAdminVirtual) return;
+
+    if (papelUsuarioAtual === 'PROFESSOR') {
+      router.push('/teacher/dashboard');
+      return;
     }
+
+    router.push('/app');
   }, [currentUser, router]);
 
   const handleRegister = async (e: FormEvent) => {

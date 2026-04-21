@@ -9,18 +9,30 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [entrando, setEntrando] = useState(false);
   const router = useRouter();
   const { refreshData, currentUser } = useUser();
   
   useEffect(() => {
-    if (currentUser) {
-      router.push('/app');
+    if (!currentUser) return;
+
+    const papelUsuarioAtual = (currentUser.role || '').toUpperCase();
+    const sessaoAdminVirtual = papelUsuarioAtual === 'ADMIN' && String(currentUser.id || '').startsWith('admin-');
+    if (sessaoAdminVirtual) return;
+
+    if (papelUsuarioAtual === 'PROFESSOR') {
+      router.push('/teacher/dashboard');
+      return;
     }
+
+    router.push('/app');
   }, [currentUser, router]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
+    if (entrando) return;
     setError('');
+    setEntrando(true);
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -37,6 +49,8 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError('Erro de conexão ao servidor.');
+    } finally {
+      setEntrando(false);
     }
   };
 
@@ -81,9 +95,11 @@ export default function LoginPage() {
 
           <button 
             type="submit"
-            className="w-full py-4 mt-4 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-black text-lg transition-transform active:scale-95 shadow-[0_4px_0_0_#2563eb]"
+            disabled={entrando}
+            className="w-full py-4 mt-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-2xl font-black text-lg transition-transform active:scale-95 shadow-[0_4px_0_0_#2563eb] flex items-center justify-center gap-2"
           >
-            ENTRAR
+            {entrando && <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {entrando ? 'ENTRANDO...' : 'ENTRAR'}
           </button>
         </form>
 

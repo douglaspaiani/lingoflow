@@ -1,18 +1,28 @@
 "use client";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 
 import { Trophy, Medal, Flame } from 'lucide-react';
 import { AppData, User } from '@/types';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Ranking() {
+  const router = useRouter();
+  const { currentUser } = useUser();
   const [globalUsers, setGlobalUsers] = useState<User[]>([]);
   const [turmaUsers, setTurmaUsers] = useState<User[]>([]);
   const [weekUsers, setWeekUsers] = useState<User[]>([]);
   const [friendsUsers, setFriendsUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'semana' | 'turma' | 'global' | 'amigos'>('semana');
+
+  useEffect(() => {
+    if (!currentUser) {
+      router.replace('/login');
+    }
+  }, [currentUser, router]);
 
   useEffect(() => {
     fetch('/api/data')
@@ -39,6 +49,15 @@ export default function Ranking() {
   }, []);
 
   const users = activeTab === 'global' ? globalUsers : activeTab === 'turma' ? turmaUsers : activeTab === 'amigos' ? friendsUsers : weekUsers;
+
+  if (!currentUser) {
+    return (
+      <div className="flex flex-col items-center justify-center pt-40 gap-4">
+        <div className="h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span className="font-black text-blue-500 uppercase tracking-widest animate-pulse">Carregando Ranking...</span>
+      </div>
+    );
+  }
 
   return (
     <motion.div

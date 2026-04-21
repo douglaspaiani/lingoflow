@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     for (const room of rooms) {
       let finalCode = room.code;
       const isNewRoom = room.id.startsWith('room-');
+      const nivelTurmaNormalizado = Math.min(5, Math.max(1, Number(room.level) || 1));
 
       if (isNewRoom) {
         let isUnique = false;
@@ -33,11 +34,13 @@ export async function POST(req: Request) {
         where: { id: room.id },
         update: {
           name: room.name,
+          level: nivelTurmaNormalizado,
           code: finalCode,
         },
         create: {
           id: room.id,
           name: room.name,
+          level: nivelTurmaNormalizado,
           code: finalCode,
           adminId: payload.id as string
         }

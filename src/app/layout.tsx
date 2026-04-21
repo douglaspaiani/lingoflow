@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "../components/Providers";
 import { TopBar, BottomNav } from "../components/Navigation";
 import { LayoutWrapper } from "../components/LayoutWrapper";
+import { AlertaConquistaGlobal } from "../components/AlertaConquistaGlobal";
 
 export const metadata: Metadata = {
   title: "LingoFlow",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Providers>
           <div className="min-h-screen transition-colors duration-300 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100">
+            <AlertaConquistaGlobal />
             <TopBar />
             <LayoutWrapper>
               {children}

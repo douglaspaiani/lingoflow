@@ -3,19 +3,25 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { Calendar, Flame, Target, Star, MoreHorizontal, User as UserIcon, Camera, UserPlus, UserMinus, Pencil } from 'lucide-react';
+import { Calendar, Flame, Target, Star, MoreHorizontal, User as UserIcon, Camera, UserPlus, UserMinus, Pencil, AlertTriangle } from 'lucide-react';
 import { User, AppData } from '@/types';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Perfil() {
   const { userId } = useParams() as { userId: string };
   const router = useRouter();
+  const { currentUser: usuarioSessao, registrarConquistasDesbloqueadas } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showOptions, setShowOptions] = useState(false);
+  const [adminSemPerfil, setAdminSemPerfil] = useState(false);
+  const [carregandoPerfil, setCarregandoPerfil] = useState(true);
+  const [erroPerfil, setErroPerfil] = useState('');
   const optionsRef = useRef<HTMLDivElement>(null);
-  const targetId = userId || '1';
-  const isOwnProfile = targetId === '1';
+  const idUsuarioSessao = usuarioSessao?.id || '';
+  const targetId = userId || idUsuarioSessao;
+  const isOwnProfile = targetId !== '' && targetId === idUsuarioSessao;
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -30,18 +36,56 @@ export default function Perfil() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchData = () => {
-    fetch('/api/data')
-      .then(res => res.json())
-      .then((data: AppData) => {
-        setUser(data.users.find((u: any) => u.id === targetId) || null);
-        setCurrentUser(data.users.find((u: any) => u.id === '1') || null);
-      });
+  const fetchData = async () => {
+    if (!targetId || !idUsuarioSessao) {
+      setUser(null);
+      setCurrentUser(null);
+      setErroPerfil('Usuário inválido.');
+      setCarregandoPerfil(false);
+      return;
+    }
+
+    setCarregandoPerfil(true);
+    setErroPerfil('');
+    try {
+      const resposta = await fetch('/api/data', { cache: 'no-store' });
+      if (!resposta.ok) {
+        throw new Error('Falha ao carregar perfil.');
+      }
+      const data = await resposta.json() as AppData;
+      setUser(data.users.find((u) => u.id === targetId) || null);
+      setCurrentUser(data.users.find((u) => u.id === idUsuarioSessao) || null);
+    } catch (erro) {
+      console.error('Erro ao carregar perfil:', erro);
+      setUser(null);
+      setCurrentUser(null);
+      setErroPerfil('Não foi possível carregar os dados do perfil.');
+    } finally {
+      setCarregandoPerfil(false);
+    }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [targetId]);
+    if (!usuarioSessao) {
+      router.replace('/login');
+      return;
+    }
+
+    if ((usuarioSessao?.role || '').toUpperCase() === 'PROFESSOR') {
+      router.replace('/app');
+      return;
+    }
+
+    const ehAdminLogado = usuarioSessao?.role === 'ADMIN';
+    if (ehAdminLogado) {
+      setAdminSemPerfil(true);
+      setCarregandoPerfil(false);
+      return;
+    }
+
+    setAdminSemPerfil(false);
+    void fetchData();
+  }, [router, targetId, usuarioSessao?.role, idUsuarioSessao]);
 
   const handlePhotoClick = (type: 'avatar' | 'coverPhoto') => {
     if (!isOwnProfile) return;
@@ -60,9 +104,9 @@ export default function Perfil() {
         const res = await fetch('/api/user/update-photo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: '1', type, url: dataUrl })
+          body: JSON.stringify({ userId: idUsuarioSessao, type, url: dataUrl })
         });
-        if (res.ok) fetchData();
+        if (res.ok) void fetchData();
       } catch (err) {
         console.error(err);
       }
@@ -71,22 +115,75 @@ export default function Perfil() {
   };
 
   const handleToggleFollow = async () => {
+    if (adminSemPerfil) return;
+
     try {
       const res = await fetch('/api/user/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: '1', targetId })
+        body: JSON.stringify({ userId: idUsuarioSessao, targetId })
       });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        const corpoResposta = await res.json().catch(() => null);
+        if (Array.isArray(corpoResposta?.novasConquistasDesbloqueadas)) {
+          registrarConquistasDesbloqueadas(corpoResposta.novasConquistasDesbloqueadas);
+        }
+        void fetchData();
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
-  if (!user) return (
+  const abrirTelaConexoes = (aba: 'seguindo' | 'seguidores') => {
+    if (!targetId) return;
+    router.push(`/perfil/${targetId}/conexoes?aba=${aba}`);
+  };
+
+  if (adminSemPerfil) return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="py-16"
+    >
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-10 text-center shadow-sm">
+          <div className="h-20 w-20 rounded-3xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">
+            Perfil indisponível para administrador
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mb-8">
+            Esta área social não está disponível no modo administrador. Seguir usuários também está desativado.
+          </p>
+          <button
+            onClick={() => router.push('/app')}
+            className="bg-blue-500 hover:bg-blue-400 text-white font-black py-4 px-8 rounded-2xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-sm"
+          >
+            Voltar ao App
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+
+  if (carregandoPerfil) return (
     <div className="flex flex-col items-center justify-center py-20">
       <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
       <span className="font-bold text-slate-400">Carregando Perfil...</span>
+    </div>
+  );
+
+  if (!user) return (
+    <div className="flex flex-col items-center justify-center py-20 gap-4 px-6 text-center">
+      <span className="font-bold text-slate-400">{erroPerfil || 'Perfil não encontrado.'}</span>
+      <button
+        onClick={() => router.push('/app')}
+        className="bg-blue-500 hover:bg-blue-400 text-white font-black py-3 px-6 rounded-2xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-xs"
+      >
+        Voltar ao app
+      </button>
     </div>
   );
 
@@ -188,14 +285,20 @@ export default function Perfil() {
           <p className="text-blue-500 font-black text-lg">@{user.username || user.name.toLowerCase()}</p>
           
           <div className="flex justify-center gap-6 mt-4">
-            <div className="flex flex-col items-center">
+            <button
+              onClick={() => abrirTelaConexoes('seguindo')}
+              className="flex flex-col items-center hover:opacity-80 transition-opacity"
+            >
               <span className="text-xl font-black text-slate-800 dark:text-slate-100">{(user.following || []).length}</span>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seguindo</span>
-            </div>
-            <div className="flex flex-col items-center">
+            </button>
+            <button
+              onClick={() => abrirTelaConexoes('seguidores')}
+              className="flex flex-col items-center hover:opacity-80 transition-opacity"
+            >
               <span className="text-xl font-black text-slate-800 dark:text-slate-100">{(user.followers || []).length}</span>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seguidores</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>

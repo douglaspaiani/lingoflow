@@ -1,43 +1,91 @@
 "use client";
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserPlus, UserMinus, Search, Users, Trophy, Star } from 'lucide-react';
+import { UserPlus, UserMinus, Search, Users, Trophy, Star, AlertTriangle } from 'lucide-react';
 import { AppData, User } from '@/types';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/contexts/UserContext';
 
 
 export default function Amigos() {
+  const router = useRouter();
+  const { currentUser: usuarioSessao, registrarConquistasDesbloqueadas } = useUser();
+  const idUsuarioSessao = usuarioSessao?.id || '';
   const [data, setData] = useState<AppData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [adminSemSocial, setAdminSemSocial] = useState(false);
+  const [erroDadosAmigos, setErroDadosAmigos] = useState('');
 
   useEffect(() => {
+    if (!usuarioSessao) {
+      router.replace('/login');
+      return;
+    }
+
+    if ((usuarioSessao?.role || '').toUpperCase() === 'PROFESSOR') {
+      router.replace('/app');
+      return;
+    }
+
+    const ehAdminLogado = usuarioSessao?.role === 'ADMIN';
+    if (ehAdminLogado) {
+      setAdminSemSocial(true);
+      setIsLoading(false);
+      return;
+    }
+
+    setAdminSemSocial(false);
+    if (!idUsuarioSessao) {
+      setIsLoading(false);
+      setErroDadosAmigos('Sessão de usuário inválida.');
+      return;
+    }
     fetchData();
-  }, []);
+  }, [router, usuarioSessao?.role, idUsuarioSessao]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/data');
-      const d = await res.json();
+      setErroDadosAmigos('');
+      const res = await fetch('/api/data', { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error('Falha ao carregar dados.');
+      }
+      const d = await res.json() as AppData;
       setData(d);
-      const mainUser = d.users.find((u: any) => u.id === '1');
+      const mainUser = d.users.find((u) => u.id === idUsuarioSessao) || null;
       setCurrentUser(mainUser);
+      if (!mainUser) {
+        setErroDadosAmigos('Usuário da sessão não encontrado na lista de alunos.');
+      }
+    } catch (erro) {
+      console.error('Erro ao carregar amigos:', erro);
+      setErroDadosAmigos('Não foi possível carregar os dados de amigos.');
+      setData(null);
+      setCurrentUser(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleFollow = async (targetId: string) => {
+    if (adminSemSocial) return;
+
     try {
       const res = await fetch('/api/user/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: '1', targetId })
+        body: JSON.stringify({ userId: idUsuarioSessao, targetId })
       });
       if (res.ok) {
+        const corpoResposta = await res.json().catch(() => null);
+        if (Array.isArray(corpoResposta?.novasConquistasDesbloqueadas)) {
+          registrarConquistasDesbloqueadas(corpoResposta.novasConquistasDesbloqueadas);
+        }
         fetchData();
       }
     } catch (err) {
@@ -45,11 +93,51 @@ export default function Amigos() {
     }
   };
 
-  if (isLoading || !data || !currentUser) {
+  if (adminSemSocial) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -16 }}
+        transition={{ duration: 0.3 }}
+        className="py-16"
+      >
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-10 text-center shadow-sm">
+            <div className="h-20 w-20 rounded-3xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="h-10 w-10" />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">
+              Seguir usuários indisponível para administrador
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-bold">
+              O modo administrador não permite seguir ou gerenciar amigos.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center pt-40 gap-4">
         <div className="h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         <span className="font-black text-blue-500 uppercase tracking-widest animate-pulse">Buscando Amigos...</span>
+      </div>
+    );
+  }
+
+  if (erroDadosAmigos || !data || !currentUser) {
+    return (
+      <div className="flex flex-col items-center justify-center pt-32 gap-5 px-6 text-center">
+        <p className="font-black text-slate-400">{erroDadosAmigos || 'Não foi possível carregar amigos.'}</p>
+        <button
+          onClick={fetchData}
+          className="bg-blue-500 hover:bg-blue-400 text-white font-black py-3 px-6 rounded-2xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-xs"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
