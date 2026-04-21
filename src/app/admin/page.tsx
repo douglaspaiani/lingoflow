@@ -7,7 +7,7 @@ import {
   Star, Settings, LogOut, ChevronRight, BookOpen, Layers, Edit3, 
   CheckCircle2, XCircle, ShieldCheck, Mail, Lock, Flame, Search,
   ArrowLeft, AlertTriangle, X, Users, Presentation, Check, Hash, Zap, Moon, Sun, Edit2, ChevronsUpDown, LifeBuoy, ChevronDown, GraduationCap, Phone, ImagePlus, RotateCcw, RotateCw, Gamepad2, Upload,
-  Trophy, Award, Crown, Medal, Target, Rocket, Gem, Heart
+  Trophy, Award, Crown, Medal, Target, Rocket, Gem, Heart, Archive
 } from 'lucide-react';
 import { useTheme } from '@/components/Providers';
 import { Level, AppData, Exercise, User, Lesson, AdminUser, Room, Professor, JogoFaseImagem, Conquista, TipoRequisitoConquista } from '@/types';
@@ -18,8 +18,27 @@ import {
   ICONES_CONQUISTA_DISPONIVEIS,
   OPCOES_TIPO_REQUISITO_CONQUISTA
 } from '@/lib/conquistas-config';
+import {
+  DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS,
+  SLUG_JOGO_BATTLE_MODE_V1,
+  SLUG_JOGO_TRADUZIR_IMAGEM,
+  TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+  converterDuracaoBattleModeParaSegundos,
+  formatarDuracaoBattleMode
+} from '@/lib/playground-jogos';
 
-type AdminTab = 'dashboard' | 'profile' | 'content' | 'achievements' | 'users' | 'rooms' | 'playground' | 'teachers' | 'admins' | 'energy';
+type AdminTab =
+  | 'dashboard'
+  | 'profile'
+  | 'content'
+  | 'repository'
+  | 'achievements'
+  | 'users'
+  | 'rooms'
+  | 'playground'
+  | 'teachers'
+  | 'admins'
+  | 'energy';
 type AdminSubview = 'list' | 'add' | 'edit';
 type ProfessorSubview = 'list' | 'add' | 'edit';
 type ConquistaSubview = 'list' | 'add' | 'edit';
@@ -61,6 +80,10 @@ type JogoPlaygroundDisponivel = {
   descricao: string;
   ativo: boolean;
   totalFases: number;
+  configuracaoBattleMode?: {
+    tipoResposta: string;
+    duracaoSegundos: number;
+  } | null;
 };
 type FasePlaygroundFormulario = {
   id: string;
@@ -68,6 +91,15 @@ type FasePlaygroundFormulario = {
   ordem: number;
   imagem: string;
   traducaoCorreta: string;
+  ativo: boolean;
+};
+type PerguntaBattleModeFormulario = {
+  id: string;
+  nivel: number;
+  ordem: number;
+  pergunta: string;
+  opcoes: string[];
+  respostaCorreta: string;
   ativo: boolean;
 };
 type RegistroHistoricoRelatorioAluno = {
@@ -98,10 +130,115 @@ type DadosRelatorioAlunoAdmin = {
   historico: RegistroHistoricoRelatorioAluno[];
 };
 
+type ResumoPacoteRepositorio = {
+  slug: string;
+  nome: string;
+  descricao: string;
+  versaoMaisRecente: string;
+  totalModulos: number;
+  totalLicoes: number;
+  totalExercicios: number;
+};
+
+type StatusInstalacaoPacoteRepositorio = {
+  modulosInstalados: number;
+  licoesInstaladas: number;
+  exerciciosInstalados: number;
+  percentualInstalacao: number;
+  possuiInstalacao: boolean;
+  estaAtualizado: boolean;
+};
+
+type ResultadoInstalacaoPacoteRepositorio = {
+  mensagem: string;
+  resumo: {
+    totalModulos: number;
+    totalLicoes: number;
+    totalExercicios: number;
+    modulosNovosInstalados: number;
+    licoesNovasInstaladas: number;
+    exerciciosNovosInstalados: number;
+    modulosJaExistentes: number;
+    licoesJaExistentes: number;
+    exerciciosJaExistentes: number;
+  };
+};
+
+type ExercicioImportacaoConteudoJson = {
+  id: string;
+  type: string;
+  question: string;
+  answer: string;
+  options: string[];
+  pairs: { left: string; right: string }[];
+  xp: number;
+};
+
+type LicaoImportacaoConteudoJson = {
+  id: string;
+  title: string;
+  exercises: ExercicioImportacaoConteudoJson[];
+};
+
+type ModuloImportacaoConteudoJson = {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  lessons: LicaoImportacaoConteudoJson[];
+};
+
+type ResultadoImportacaoConteudoJson = {
+  mensagem: string;
+  resumo: {
+    totalModulos: number;
+    totalLicoes: number;
+    totalExercicios: number;
+    modulosNovosInstalados: number;
+    licoesNovasInstaladas: number;
+    exerciciosNovosInstalados: number;
+    modulosJaExistentes: number;
+    licoesJaExistentes: number;
+    exerciciosJaExistentes: number;
+    licoesRepetidasIgnoradas: number;
+    exerciciosRepetidosIgnorados: number;
+  };
+};
+
+type PerguntaConteudoRepositorio = {
+  id: string;
+  pergunta: string;
+  respostaCorreta: string;
+};
+
+type LicaoConteudoRepositorio = {
+  id: string;
+  titulo: string;
+  perguntas: PerguntaConteudoRepositorio[];
+};
+
+type ModuloConteudoRepositorio = {
+  id: string;
+  titulo: string;
+  descricao: string;
+  dificuldade: number;
+  licoes: LicaoConteudoRepositorio[];
+};
+
+const OPCOES_TIPO_EXERCICIO_CONTEUDO: Array<{ valor: Exercise['type']; rotulo: string }> = [
+  { valor: 'translate', rotulo: 'Tradução' },
+  { valor: 'select', rotulo: 'Seleção' },
+  { valor: 'listen', rotulo: 'Audição' },
+  { valor: 'speak', rotulo: 'Fala' },
+  { valor: 'match', rotulo: 'Pares' },
+  { valor: 'reorder', rotulo: 'Ordenação' }
+];
+
 const TAB_LABELS: Record<AdminTab, string> = {
   dashboard: 'Dashboard',
   profile: 'Meu Perfil',
   content: 'Conteúdo',
+  repository: 'Repositório',
   achievements: 'Conquistas',
   users: 'Alunos',
   rooms: 'Turmas',
@@ -212,6 +349,11 @@ export default function Admin() {
   const [erroFotoProfessor, setErroFotoProfessor] = useState('');
   const [gerandoFotoProfessorRecortada, setGerandoFotoProfessorRecortada] = useState(false);
   const [fasesPlaygroundImagem, setFasesPlaygroundImagem] = useState<FasePlaygroundFormulario[]>([]);
+  const [perguntasPlaygroundBattleMode, setPerguntasPlaygroundBattleMode] = useState<PerguntaBattleModeFormulario[]>([]);
+  const [configuracaoBattleModePlayground, setConfiguracaoBattleModePlayground] = useState({
+    tipoResposta: TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+    duracao: formatarDuracaoBattleMode(DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS)
+  });
   const [subAbaPlayground, setSubAbaPlayground] = useState<SubAbaPlayground>('lista');
   const [jogosPlaygroundDisponiveis, setJogosPlaygroundDisponiveis] = useState<JogoPlaygroundDisponivel[]>([]);
   const [jogoPlaygroundSelecionado, setJogoPlaygroundSelecionado] = useState<JogoPlaygroundDisponivel | null>(null);
@@ -222,9 +364,35 @@ export default function Admin() {
   const [sucessoPlayground, setSucessoPlayground] = useState('');
   const [idFaseSelecionadaParaUploadImagem, setIdFaseSelecionadaParaUploadImagem] = useState<string | null>(null);
 
+  const [resumoPacoteRepositorio, setResumoPacoteRepositorio] = useState<ResumoPacoteRepositorio | null>(null);
+  const [statusPacoteRepositorio, setStatusPacoteRepositorio] = useState<StatusInstalacaoPacoteRepositorio | null>(null);
+  const [carregandoPacoteRepositorio, setCarregandoPacoteRepositorio] = useState(false);
+  const [instalandoPacoteRepositorio, setInstalandoPacoteRepositorio] = useState(false);
+  const [progressoInstalacaoPacoteRepositorio, setProgressoInstalacaoPacoteRepositorio] = useState(0);
+  const [mensagemInstalacaoPacoteRepositorio, setMensagemInstalacaoPacoteRepositorio] = useState('');
+  const [erroPacoteRepositorio, setErroPacoteRepositorio] = useState('');
+  const [resultadoInstalacaoPacoteRepositorio, setResultadoInstalacaoPacoteRepositorio] =
+    useState<ResultadoInstalacaoPacoteRepositorio | null>(null);
+  const [modulosConteudoRepositorio, setModulosConteudoRepositorio] = useState<ModuloConteudoRepositorio[]>([]);
+  const [carregandoConteudoRepositorio, setCarregandoConteudoRepositorio] = useState(false);
+  const [conteudoRepositorioVisivel, setConteudoRepositorioVisivel] = useState(false);
+  const [idModuloConteudoSelecionado, setIdModuloConteudoSelecionado] = useState<string | null>(null);
+  const [idLicaoConteudoSelecionada, setIdLicaoConteudoSelecionada] = useState<string | null>(null);
+  const [modulosImportacaoConteudo, setModulosImportacaoConteudo] = useState<ModuloImportacaoConteudoJson[]>([]);
+  const [nomeArquivoImportacaoConteudo, setNomeArquivoImportacaoConteudo] = useState('');
+  const [idModuloImportacaoConteudoSelecionado, setIdModuloImportacaoConteudoSelecionado] = useState<string | null>(null);
+  const [idLicaoImportacaoConteudoSelecionada, setIdLicaoImportacaoConteudoSelecionada] = useState<string | null>(null);
+  const [idsLicoesSelecionadasImportacaoConteudo, setIdsLicoesSelecionadasImportacaoConteudo] = useState<string[]>([]);
+  const [erroImportacaoConteudo, setErroImportacaoConteudo] = useState('');
+  const [resultadoImportacaoConteudo, setResultadoImportacaoConteudo] = useState<ResultadoImportacaoConteudoJson | null>(null);
+  const [importandoConteudoJson, setImportandoConteudoJson] = useState(false);
+  const [progressoImportacaoConteudoJson, setProgressoImportacaoConteudoJson] = useState(0);
+  const [mensagemImportacaoConteudoJson, setMensagemImportacaoConteudoJson] = useState('');
+
   // Content state
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [idExercicioSeletorTipoAberto, setIdExercicioSeletorTipoAberto] = useState<string | null>(null);
 
   // Turmas state
   const [isManagingStudents, setIsManagingStudents] = useState<string | null>(null); // roomId
@@ -256,6 +424,7 @@ export default function Admin() {
   const areaSuporteRef = useRef<HTMLDivElement | null>(null);
   const inputArquivoFotoProfessorRef = useRef<HTMLInputElement | null>(null);
   const inputArquivoImagemFasePlaygroundRef = useRef<HTMLInputElement | null>(null);
+  const inputArquivoImportacaoConteudoRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -289,6 +458,46 @@ export default function Admin() {
     return () => document.removeEventListener('mousedown', fecharMenusAoClicarFora);
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    void carregarStatusPacoteRepositorio();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (activeTab !== 'repository') return;
+    if (carregandoPacoteRepositorio) return;
+    if (resumoPacoteRepositorio && statusPacoteRepositorio) return;
+    void carregarStatusPacoteRepositorio();
+  }, [activeTab, carregandoPacoteRepositorio, resumoPacoteRepositorio, statusPacoteRepositorio]);
+
+  useEffect(() => {
+    if (!instalandoPacoteRepositorio) return;
+
+    const bloquearSaidaDuranteInstalacao = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', bloquearSaidaDuranteInstalacao);
+    return () => window.removeEventListener('beforeunload', bloquearSaidaDuranteInstalacao);
+  }, [instalandoPacoteRepositorio]);
+
+  useEffect(() => {
+    if (!importandoConteudoJson) return;
+
+    const bloquearSaidaDuranteImportacao = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', bloquearSaidaDuranteImportacao);
+    return () => window.removeEventListener('beforeunload', bloquearSaidaDuranteImportacao);
+  }, [importandoConteudoJson]);
+
+  useEffect(() => {
+    setIdExercicioSeletorTipoAberto(null);
+  }, [selectedLessonId, selectedLevelId]);
+
   const fetchData = async () => {
     try {
       const resposta = await fetch('/api/data', { cache: 'no-store' });
@@ -305,22 +514,489 @@ export default function Admin() {
     }
   };
 
+  const carregarStatusPacoteRepositorio = async () => {
+    setCarregandoPacoteRepositorio(true);
+    setErroPacoteRepositorio('');
+    try {
+      const resposta = await fetch('/api/admin/repositorio/pacote-conteudos', { cache: 'no-store' });
+      const dadosResposta = await resposta.json().catch(() => null);
+
+      if (!resposta.ok) {
+        setErroPacoteRepositorio(dadosResposta?.error || 'Não foi possível carregar o pacote de conteúdos.');
+        return;
+      }
+
+      setResumoPacoteRepositorio(dadosResposta?.pacote || null);
+      setStatusPacoteRepositorio(dadosResposta?.instalacao || null);
+    } catch (erro) {
+      console.error(erro);
+      setErroPacoteRepositorio('Erro de conexão ao consultar o pacote de conteúdos.');
+    } finally {
+      setCarregandoPacoteRepositorio(false);
+    }
+  };
+
+  const carregarConteudoRepositorio = async () => {
+    setCarregandoConteudoRepositorio(true);
+    setErroPacoteRepositorio('');
+    try {
+      const resposta = await fetch('/api/admin/repositorio/pacote-conteudos?incluirConteudo=1', {
+        cache: 'no-store'
+      });
+      const dadosResposta = await resposta.json().catch(() => null);
+
+      if (!resposta.ok) {
+        setErroPacoteRepositorio(dadosResposta?.error || 'Não foi possível carregar o conteúdo do pacote.');
+        return;
+      }
+
+      setResumoPacoteRepositorio(dadosResposta?.pacote || null);
+      setStatusPacoteRepositorio(dadosResposta?.instalacao || null);
+
+      const modulosRecebidos = Array.isArray(dadosResposta?.conteudo?.modulos)
+        ? (dadosResposta.conteudo.modulos as ModuloConteudoRepositorio[])
+        : [];
+
+      setModulosConteudoRepositorio(modulosRecebidos);
+
+      if (modulosRecebidos.length === 0) {
+        setIdModuloConteudoSelecionado(null);
+        setIdLicaoConteudoSelecionada(null);
+        return;
+      }
+
+      setIdModuloConteudoSelecionado((idAtual) => {
+        const moduloAindaExiste = modulosRecebidos.some((modulo) => modulo.id === idAtual);
+        return moduloAindaExiste ? idAtual : modulosRecebidos[0].id;
+      });
+
+      const moduloInicial = modulosRecebidos[0];
+      const primeiraLicao = moduloInicial?.licoes?.[0] || null;
+      setIdLicaoConteudoSelecionada((idAtual) => {
+        const moduloComLicaoSelecionada = modulosRecebidos.find((modulo) =>
+          modulo.licoes.some((licao) => licao.id === idAtual)
+        );
+        if (moduloComLicaoSelecionada) return idAtual;
+        return primeiraLicao?.id || null;
+      });
+    } catch (erro) {
+      console.error(erro);
+      setErroPacoteRepositorio('Erro de conexão ao carregar o conteúdo do pacote.');
+    } finally {
+      setCarregandoConteudoRepositorio(false);
+    }
+  };
+
+  const alternarVisualizacaoConteudoRepositorio = async () => {
+    if (conteudoRepositorioVisivel) {
+      setConteudoRepositorioVisivel(false);
+      return;
+    }
+
+    setConteudoRepositorioVisivel(true);
+    if (modulosConteudoRepositorio.length > 0) return;
+    await carregarConteudoRepositorio();
+  };
+
+  const instalarOuAtualizarPacoteRepositorio = async () => {
+    if (instalandoPacoteRepositorio) return;
+
+    setInstalandoPacoteRepositorio(true);
+    setErroPacoteRepositorio('');
+    setResultadoInstalacaoPacoteRepositorio(null);
+    setProgressoInstalacaoPacoteRepositorio(3);
+    setMensagemInstalacaoPacoteRepositorio('Preparando pacote de instalação...');
+
+    const intervaloProgresso = window.setInterval(() => {
+      setProgressoInstalacaoPacoteRepositorio((valorAtual) => {
+        if (valorAtual >= 90) return valorAtual;
+        return valorAtual + 3;
+      });
+    }, 350);
+
+    try {
+      const resposta = await fetch('/api/admin/repositorio/pacote-conteudos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      setMensagemInstalacaoPacoteRepositorio('Mesclando módulos e lições com os dados atuais...');
+      const dadosResposta = await resposta.json().catch(() => null);
+
+      if (!resposta.ok) {
+        throw new Error(dadosResposta?.error || 'Não foi possível instalar o pacote de conteúdos.');
+      }
+
+      setProgressoInstalacaoPacoteRepositorio(100);
+      setMensagemInstalacaoPacoteRepositorio('Instalação concluída com sucesso!');
+
+      setResumoPacoteRepositorio(dadosResposta?.pacote || null);
+      setStatusPacoteRepositorio(dadosResposta?.status || null);
+      setResultadoInstalacaoPacoteRepositorio({
+        mensagem: dadosResposta?.mensagem || 'Instalação concluída.',
+        resumo: dadosResposta?.resumo
+      });
+
+      if (conteudoRepositorioVisivel) {
+        await carregarConteudoRepositorio();
+      }
+
+      await fetchData();
+    } catch (erro) {
+      console.error(erro);
+      const mensagemErro = erro instanceof Error ? erro.message : 'Erro ao instalar pacote de conteúdos.';
+      setErroPacoteRepositorio(mensagemErro);
+      setMensagemInstalacaoPacoteRepositorio('Falha durante a instalação.');
+    } finally {
+      window.clearInterval(intervaloProgresso);
+      window.setTimeout(() => {
+        setInstalandoPacoteRepositorio(false);
+      }, 750);
+    }
+  };
+
+  function listaSeguraImportacaoConteudo<T>(valor: unknown): T[] {
+    return Array.isArray(valor) ? (valor as T[]) : [];
+  }
+
+  function textoSeguroImportacaoConteudo(valor: unknown, padrao = '') {
+    if (typeof valor !== 'string') return padrao;
+    const texto = valor.trim();
+    return texto.length > 0 ? texto : padrao;
+  }
+
+  function numeroSeguroImportacaoConteudo(valor: unknown, padrao: number) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : padrao;
+  }
+
+  function normalizarExercicioImportacaoConteudo(
+    exercicioRecebido: Partial<ExercicioImportacaoConteudoJson>,
+    indiceExercicio: number,
+    idLicao: string
+  ): ExercicioImportacaoConteudoJson | null {
+    const idExercicio = textoSeguroImportacaoConteudo(exercicioRecebido.id, `${idLicao}-ex-${indiceExercicio + 1}`);
+    const pergunta = textoSeguroImportacaoConteudo(exercicioRecebido.question);
+
+    const paresNormalizados = listaSeguraImportacaoConteudo<{ left: unknown; right: unknown }>(exercicioRecebido.pairs)
+      .map((par) => ({
+        left: textoSeguroImportacaoConteudo(par.left),
+        right: textoSeguroImportacaoConteudo(par.right)
+      }))
+      .filter((par) => par.left.length > 0 && par.right.length > 0);
+
+    const respostaPadraoPares = paresNormalizados.map((par) => `${par.left}=${par.right}`).join('; ');
+    const resposta = textoSeguroImportacaoConteudo(exercicioRecebido.answer, respostaPadraoPares);
+
+    if (!idExercicio || !pergunta || !resposta) {
+      return null;
+    }
+
+    const tiposPermitidos = new Set(['translate', 'select', 'listen', 'speak', 'match', 'reorder']);
+    const tipoRecebido = textoSeguroImportacaoConteudo(exercicioRecebido.type, 'translate').toLowerCase();
+    const tipoNormalizado = tiposPermitidos.has(tipoRecebido) ? tipoRecebido : 'translate';
+
+    const opcoesNormalizadas = listaSeguraImportacaoConteudo<unknown>(exercicioRecebido.options)
+      .map((opcao) => String(opcao ?? '').trim())
+      .filter((opcao) => opcao.length > 0);
+
+    return {
+      id: idExercicio,
+      type: tipoNormalizado,
+      question: pergunta,
+      answer: resposta,
+      options: opcoesNormalizadas,
+      pairs: paresNormalizados,
+      xp: Math.max(1, Math.round(numeroSeguroImportacaoConteudo(exercicioRecebido.xp, 10)))
+    };
+  }
+
+  function normalizarLicaoImportacaoConteudo(
+    licaoRecebida: Partial<LicaoImportacaoConteudoJson>,
+    indiceLicao: number,
+    idModulo: string
+  ): LicaoImportacaoConteudoJson | null {
+    const idLicao = textoSeguroImportacaoConteudo(licaoRecebida.id, `${idModulo}-lic-${indiceLicao + 1}`);
+    const tituloLicao = textoSeguroImportacaoConteudo(licaoRecebida.title, `Lição ${indiceLicao + 1}`);
+
+    if (!idLicao || !tituloLicao) {
+      return null;
+    }
+
+    const exerciciosNormalizados = listaSeguraImportacaoConteudo<unknown>(licaoRecebida.exercises)
+      .map((exercicioBruto, indiceExercicio) =>
+        normalizarExercicioImportacaoConteudo(
+          (exercicioBruto as Partial<ExercicioImportacaoConteudoJson>) || {},
+          indiceExercicio,
+          idLicao
+        )
+      )
+      .filter((exercicio): exercicio is ExercicioImportacaoConteudoJson => exercicio !== null);
+
+    if (exerciciosNormalizados.length === 0) {
+      return null;
+    }
+
+    return {
+      id: idLicao,
+      title: tituloLicao,
+      exercises: exerciciosNormalizados
+    };
+  }
+
+  function normalizarModuloImportacaoConteudo(
+    moduloRecebido: Partial<ModuloImportacaoConteudoJson>,
+    indiceModulo: number
+  ): ModuloImportacaoConteudoJson | null {
+    const idModulo = textoSeguroImportacaoConteudo(moduloRecebido.id, `json-mod-${indiceModulo + 1}`);
+    const tituloModulo = textoSeguroImportacaoConteudo(moduloRecebido.title, `Módulo ${indiceModulo + 1}`);
+
+    if (!idModulo || !tituloModulo) {
+      return null;
+    }
+
+    const licoesNormalizadas = listaSeguraImportacaoConteudo<unknown>(moduloRecebido.lessons)
+      .map((licaoBruta, indiceLicao) =>
+        normalizarLicaoImportacaoConteudo(
+          (licaoBruta as Partial<LicaoImportacaoConteudoJson>) || {},
+          indiceLicao,
+          idModulo
+        )
+      )
+      .filter((licao): licao is LicaoImportacaoConteudoJson => licao !== null);
+
+    if (licoesNormalizadas.length === 0) {
+      return null;
+    }
+
+    return {
+      id: idModulo,
+      title: tituloModulo,
+      description: textoSeguroImportacaoConteudo(
+        moduloRecebido.description,
+        `Conteúdo importado para ${tituloModulo}`
+      ),
+      difficulty: Math.max(1, Math.round(numeroSeguroImportacaoConteudo(moduloRecebido.difficulty, 1))),
+      lessons: licoesNormalizadas
+    };
+  }
+
+  function normalizarPacoteImportacaoConteudo(conteudoBruto: unknown): ModuloImportacaoConteudoJson[] {
+    const objetoConteudo =
+      conteudoBruto && typeof conteudoBruto === 'object'
+        ? (conteudoBruto as Record<string, unknown>)
+        : {};
+
+    const modulosBrutos = listaSeguraImportacaoConteudo<unknown>(
+      objetoConteudo.modulos ?? objetoConteudo.levels
+    );
+
+    return modulosBrutos
+      .map((moduloBruto, indiceModulo) =>
+        normalizarModuloImportacaoConteudo(
+          (moduloBruto as Partial<ModuloImportacaoConteudoJson>) || {},
+          indiceModulo
+        )
+      )
+      .filter((modulo): modulo is ModuloImportacaoConteudoJson => modulo !== null);
+  }
+
+  const abrirSeletorArquivoImportacaoConteudo = () => {
+    inputArquivoImportacaoConteudoRef.current?.click();
+  };
+
+  const selecionarLicoesIniciaisImportacaoConteudo = (modulos: ModuloImportacaoConteudoJson[]) => {
+    const idsLicoesUnicos = Array.from(
+      new Set(
+        modulos.flatMap((modulo) => modulo.lessons.map((licao) => licao.id))
+      )
+    );
+
+    setIdsLicoesSelecionadasImportacaoConteudo(idsLicoesUnicos);
+  };
+
+  const processarArquivoImportacaoConteudo = async (evento: ChangeEvent<HTMLInputElement>) => {
+    const arquivo = evento.target.files?.[0];
+    if (!arquivo) return;
+
+    setErroImportacaoConteudo('');
+    setResultadoImportacaoConteudo(null);
+
+    try {
+      if (!arquivo.name.toLowerCase().endsWith('.json')) {
+        setErroImportacaoConteudo('Selecione um arquivo JSON válido para importação.');
+        return;
+      }
+
+      const textoArquivo = await arquivo.text();
+      const conteudoBruto = JSON.parse(textoArquivo);
+      const modulosNormalizados = normalizarPacoteImportacaoConteudo(conteudoBruto);
+
+      if (modulosNormalizados.length === 0) {
+        setErroImportacaoConteudo('O JSON não possui módulos/lições/exercícios válidos para importar.');
+        setModulosImportacaoConteudo([]);
+        setNomeArquivoImportacaoConteudo('');
+        setIdModuloImportacaoConteudoSelecionado(null);
+        setIdLicaoImportacaoConteudoSelecionada(null);
+        setIdsLicoesSelecionadasImportacaoConteudo([]);
+        return;
+      }
+
+      setModulosImportacaoConteudo(modulosNormalizados);
+      setNomeArquivoImportacaoConteudo(arquivo.name);
+      setIdModuloImportacaoConteudoSelecionado(modulosNormalizados[0].id);
+      setIdLicaoImportacaoConteudoSelecionada(modulosNormalizados[0].lessons[0]?.id || null);
+      selecionarLicoesIniciaisImportacaoConteudo(modulosNormalizados);
+    } catch (erro) {
+      console.error(erro);
+      setErroImportacaoConteudo('Não foi possível ler o JSON. Verifique a estrutura do arquivo.');
+      setModulosImportacaoConteudo([]);
+      setNomeArquivoImportacaoConteudo('');
+      setIdModuloImportacaoConteudoSelecionado(null);
+      setIdLicaoImportacaoConteudoSelecionada(null);
+      setIdsLicoesSelecionadasImportacaoConteudo([]);
+    } finally {
+      evento.target.value = '';
+    }
+  };
+
+  const alternarSelecaoLicaoImportacaoConteudo = (idLicao: string) => {
+    setIdsLicoesSelecionadasImportacaoConteudo((idsAtuais) => (
+      idsAtuais.includes(idLicao)
+        ? idsAtuais.filter((idAtual) => idAtual !== idLicao)
+        : [...idsAtuais, idLicao]
+    ));
+  };
+
+  const marcarTodasLicoesImportacaoConteudo = (idModulo: string) => {
+    const moduloSelecionado = modulosImportacaoConteudo.find((modulo) => modulo.id === idModulo);
+    if (!moduloSelecionado) return;
+
+    const idsLicoesModulo = moduloSelecionado.lessons.map((licao) => licao.id);
+    setIdsLicoesSelecionadasImportacaoConteudo((idsAtuais) => Array.from(new Set([...idsAtuais, ...idsLicoesModulo])));
+  };
+
+  const desmarcarLicoesImportacaoConteudo = (idModulo: string) => {
+    const moduloSelecionado = modulosImportacaoConteudo.find((modulo) => modulo.id === idModulo);
+    if (!moduloSelecionado) return;
+
+    const idsLicoesModulo = new Set(moduloSelecionado.lessons.map((licao) => licao.id));
+    setIdsLicoesSelecionadasImportacaoConteudo((idsAtuais) =>
+      idsAtuais.filter((idLicao) => !idsLicoesModulo.has(idLicao))
+    );
+  };
+
+  const importarConteudoJsonSelecionado = async () => {
+    setErroImportacaoConteudo('');
+    setResultadoImportacaoConteudo(null);
+
+    if (modulosImportacaoConteudo.length === 0) {
+      setErroImportacaoConteudo('Nenhum conteúdo foi carregado para importação.');
+      return;
+    }
+
+    const idsSelecionados = new Set(idsLicoesSelecionadasImportacaoConteudo);
+    const modulosParaImportacao = modulosImportacaoConteudo
+      .map((modulo) => ({
+        ...modulo,
+        lessons: modulo.lessons.filter((licao) => idsSelecionados.has(licao.id))
+      }))
+      .filter((modulo) => modulo.lessons.length > 0);
+
+    if (modulosParaImportacao.length === 0) {
+      setErroImportacaoConteudo('Selecione ao menos uma lição para confirmar a importação.');
+      return;
+    }
+
+    setImportandoConteudoJson(true);
+    setProgressoImportacaoConteudoJson(4);
+    setMensagemImportacaoConteudoJson('Preparando importação das atividades...');
+
+    const intervaloProgresso = window.setInterval(() => {
+      setProgressoImportacaoConteudoJson((valorAtual) => {
+        if (valorAtual >= 90) return valorAtual;
+        return valorAtual + 4;
+      });
+    }, 350);
+
+    try {
+      const resposta = await fetch('/api/admin/importar-conteudo-json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modulos: modulosParaImportacao })
+      });
+
+      setMensagemImportacaoConteudoJson('Mesclando módulos, lições e perguntas com o banco...');
+      const dadosResposta = await resposta.json().catch(() => null);
+
+      if (!resposta.ok) {
+        throw new Error(dadosResposta?.error || 'Não foi possível importar os conteúdos selecionados.');
+      }
+
+      setProgressoImportacaoConteudoJson(100);
+      setMensagemImportacaoConteudoJson('Importação concluída com sucesso!');
+      const resumoImportacaoSeguro = {
+        totalModulos: Number(dadosResposta?.resumo?.totalModulos) || 0,
+        totalLicoes: Number(dadosResposta?.resumo?.totalLicoes) || 0,
+        totalExercicios: Number(dadosResposta?.resumo?.totalExercicios) || 0,
+        modulosNovosInstalados: Number(dadosResposta?.resumo?.modulosNovosInstalados) || 0,
+        licoesNovasInstaladas: Number(dadosResposta?.resumo?.licoesNovasInstaladas) || 0,
+        exerciciosNovosInstalados: Number(dadosResposta?.resumo?.exerciciosNovosInstalados) || 0,
+        modulosJaExistentes: Number(dadosResposta?.resumo?.modulosJaExistentes) || 0,
+        licoesJaExistentes: Number(dadosResposta?.resumo?.licoesJaExistentes) || 0,
+        exerciciosJaExistentes: Number(dadosResposta?.resumo?.exerciciosJaExistentes) || 0,
+        licoesRepetidasIgnoradas: Number(dadosResposta?.resumo?.licoesRepetidasIgnoradas) || 0,
+        exerciciosRepetidosIgnorados: Number(dadosResposta?.resumo?.exerciciosRepetidosIgnorados) || 0
+      };
+      setResultadoImportacaoConteudo({
+        mensagem: dadosResposta?.mensagem || 'Importação concluída.',
+        resumo: resumoImportacaoSeguro
+      });
+      await fetchData();
+    } catch (erro) {
+      console.error(erro);
+      const mensagemErro = erro instanceof Error ? erro.message : 'Erro ao importar conteúdos do JSON.';
+      setErroImportacaoConteudo(mensagemErro);
+      setMensagemImportacaoConteudoJson('Falha durante a importação.');
+    } finally {
+      window.clearInterval(intervaloProgresso);
+      window.setTimeout(() => {
+        setImportandoConteudoJson(false);
+      }, 750);
+    }
+  };
+
   const buscarDadosPlaygroundAdmin = async () => {
     setCarregandoPlayground(true);
     try {
-      const resposta = await fetch('/api/playground/admin/traduzir-imagem', { cache: 'no-store' });
-      if (!resposta.ok) {
-        const dadosErro = await resposta.json().catch(() => null);
-        setErroPlayground(dadosErro?.error || 'Não foi possível carregar os dados do Playground.');
+      const [respostaTraduzaImagem, respostaBattleMode] = await Promise.all([
+        fetch('/api/playground/admin/traduzir-imagem', { cache: 'no-store' }),
+        fetch('/api/playground/admin/battle-mode-v1', { cache: 'no-store' })
+      ]);
+
+      if (!respostaTraduzaImagem.ok || !respostaBattleMode.ok) {
+        const dadosErroImagem = await respostaTraduzaImagem.json().catch(() => null);
+        const dadosErroBattle = await respostaBattleMode.json().catch(() => null);
+        setErroPlayground(
+          dadosErroImagem?.error ||
+          dadosErroBattle?.error ||
+          'Não foi possível carregar os dados do Playground.'
+        );
         setJogosPlaygroundDisponiveis([]);
         return;
       }
 
-      const dados = await resposta.json();
-      const jogoRecebido = dados?.jogo;
-      const fasesRecebidas = Array.isArray(dados?.jogo?.fasesImagem) ? dados.jogo.fasesImagem : [];
+      const [dadosTraduzaImagem, dadosBattleMode] = await Promise.all([
+        respostaTraduzaImagem.json().catch(() => null),
+        respostaBattleMode.json().catch(() => null)
+      ]);
+
+      const jogoTraduzaImagem = dadosTraduzaImagem?.jogo;
+      const fasesRecebidasImagem = Array.isArray(dadosTraduzaImagem?.jogo?.fasesImagem)
+        ? dadosTraduzaImagem.jogo.fasesImagem
+        : [];
       setFasesPlaygroundImagem(
-        fasesRecebidas.map((fase: JogoFaseImagem) => ({
+        fasesRecebidasImagem.map((fase: JogoFaseImagem) => ({
           id: fase.id,
           nivel: Number(fase.nivel) || 1,
           ordem: Number(fase.ordem) || 0,
@@ -330,27 +1006,77 @@ export default function Admin() {
         }))
       );
 
-      if (jogoRecebido && typeof jogoRecebido.id === 'string') {
-        const jogoDisponivel: JogoPlaygroundDisponivel = {
-          id: jogoRecebido.id,
-          slug: typeof jogoRecebido.slug === 'string' ? jogoRecebido.slug : 'traduzir-imagem',
-          nome: typeof jogoRecebido.nome === 'string' ? jogoRecebido.nome : 'Traduza a Imagem',
-          descricao: typeof jogoRecebido.descricao === 'string' && jogoRecebido.descricao.trim().length > 0
-            ? jogoRecebido.descricao.trim()
-            : 'Jogo de tradução com imagens por fase e nível.',
-          ativo: jogoRecebido.ativo !== false,
-          totalFases: fasesRecebidas.length
-        };
+      const jogoBattleMode = dadosBattleMode?.jogo;
+      const perguntasRecebidasBattleMode = Array.isArray(dadosBattleMode?.jogo?.fasesBattleMode)
+        ? dadosBattleMode.jogo.fasesBattleMode
+        : [];
+      const configuracaoBattleModeRecebida = dadosBattleMode?.jogo?.configuracaoBattleMode;
+      setPerguntasPlaygroundBattleMode(
+        perguntasRecebidasBattleMode.map((pergunta: any) => ({
+          id: String(pergunta?.id || `nova-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+          nivel: Number(pergunta?.nivel) || 1,
+          ordem: Number(pergunta?.ordem) || 0,
+          pergunta: String(pergunta?.pergunta || ''),
+          opcoes: Array.isArray(pergunta?.opcoes)
+            ? pergunta.opcoes.map((opcao: any) => String(opcao || ''))
+            : ['', '', '', ''],
+          respostaCorreta: String(pergunta?.respostaCorreta || ''),
+          ativo: pergunta?.ativo !== false
+        }))
+      );
+      setConfiguracaoBattleModePlayground({
+        tipoResposta:
+          typeof configuracaoBattleModeRecebida?.tipoResposta === 'string' &&
+          configuracaoBattleModeRecebida.tipoResposta.trim().length > 0
+            ? configuracaoBattleModeRecebida.tipoResposta.trim()
+            : TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+        duracao: formatarDuracaoBattleMode(
+          Number(configuracaoBattleModeRecebida?.duracaoSegundos) || DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS
+        )
+      });
 
-        setJogosPlaygroundDisponiveis([jogoDisponivel]);
-        setJogoPlaygroundSelecionado((estadoAtual) => {
-          if (!estadoAtual) return estadoAtual;
-          if (estadoAtual.id !== jogoDisponivel.id) return estadoAtual;
-          return jogoDisponivel;
+      const jogosDisponiveis: JogoPlaygroundDisponivel[] = [];
+      if (jogoTraduzaImagem && typeof jogoTraduzaImagem.id === 'string') {
+        jogosDisponiveis.push({
+          id: jogoTraduzaImagem.id,
+          slug: typeof jogoTraduzaImagem.slug === 'string' ? jogoTraduzaImagem.slug : SLUG_JOGO_TRADUZIR_IMAGEM,
+          nome: typeof jogoTraduzaImagem.nome === 'string' ? jogoTraduzaImagem.nome : 'Traduza a Imagem',
+          descricao: 'Jogo de tradução com imagens por fase e nível.',
+          ativo: jogoTraduzaImagem.ativo !== false,
+          totalFases: fasesRecebidasImagem.length,
+          configuracaoBattleMode: null
         });
-      } else {
-        setJogosPlaygroundDisponiveis([]);
       }
+
+      if (jogoBattleMode && typeof jogoBattleMode.id === 'string') {
+        jogosDisponiveis.push({
+          id: jogoBattleMode.id,
+          slug: typeof jogoBattleMode.slug === 'string' ? jogoBattleMode.slug : SLUG_JOGO_BATTLE_MODE_V1,
+          nome: typeof jogoBattleMode.nome === 'string'
+            ? jogoBattleMode.nome
+            : 'Battle Mode v1 - Jogo de perguntas e respostas',
+          descricao:
+            'Quiz de perguntas e respostas com cronômetro e pódio em tempo real.',
+          ativo: jogoBattleMode.ativo !== false,
+          totalFases: perguntasRecebidasBattleMode.length,
+          configuracaoBattleMode: {
+            tipoResposta:
+              typeof configuracaoBattleModeRecebida?.tipoResposta === 'string' &&
+              configuracaoBattleModeRecebida.tipoResposta.trim().length > 0
+                ? configuracaoBattleModeRecebida.tipoResposta.trim()
+                : TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+            duracaoSegundos:
+              Number(configuracaoBattleModeRecebida?.duracaoSegundos) || DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS
+          }
+        });
+      }
+
+      setJogosPlaygroundDisponiveis(jogosDisponiveis);
+      setJogoPlaygroundSelecionado((estadoAtual) => {
+        if (!estadoAtual) return estadoAtual;
+        const jogoAtualizado = jogosDisponiveis.find((jogoDisponivel) => jogoDisponivel.id === estadoAtual.id);
+        return jogoAtualizado || estadoAtual;
+      });
 
       setErroPlayground('');
     } catch (erro) {
@@ -433,6 +1159,147 @@ export default function Admin() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const removerExercicioDaLicaoSelecionada = (idExercicio: string) => {
+    if (!data || !selectedLevelId || !selectedLessonId) return;
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== selectedLevelId) return nivel;
+
+      return {
+        ...nivel,
+        lessons: nivel.lessons.map((licao) => {
+          if (licao.id !== selectedLessonId) return licao;
+          return {
+            ...licao,
+            exercises: licao.exercises.filter((exercicio) => exercicio.id !== idExercicio)
+          };
+        })
+      };
+    });
+
+    setIdExercicioSeletorTipoAberto((idAtual) => (idAtual === idExercicio ? null : idAtual));
+    void syncContent(niveisAtualizados);
+  };
+
+  const obterRotuloTipoExercicioConteudo = (tipo: string) => {
+    const opcaoEncontrada = OPCOES_TIPO_EXERCICIO_CONTEUDO.find((opcao) => opcao.valor === tipo);
+    return opcaoEncontrada?.rotulo || 'Tipo';
+  };
+
+  const atualizarTipoExercicioDaLicaoSelecionada = (idExercicio: string, tipoExercicio: Exercise['type']) => {
+    if (!data || !selectedLevelId || !selectedLessonId) return;
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== selectedLevelId) return nivel;
+
+      return {
+        ...nivel,
+        lessons: nivel.lessons.map((licao) => {
+          if (licao.id !== selectedLessonId) return licao;
+          return {
+            ...licao,
+            exercises: licao.exercises.map((exercicio) =>
+              exercicio.id === idExercicio ? { ...exercicio, type: tipoExercicio } : exercicio
+            )
+          };
+        })
+      };
+    });
+
+    setIdExercicioSeletorTipoAberto(null);
+    void syncContent(niveisAtualizados);
+  };
+
+  const abrirCadastroNovaLicaoNoModulo = async (idModulo: string) => {
+    if (!data) return;
+
+    const novaLicao: Lesson = {
+      id: `l-${Date.now()}`,
+      title: 'Nova Lição',
+      exercises: []
+    };
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== idModulo) return nivel;
+      return {
+        ...nivel,
+        lessons: [...nivel.lessons, novaLicao]
+      };
+    });
+
+    setSelectedLevelId(idModulo);
+    await syncContent(niveisAtualizados);
+    setSelectedLessonId(novaLicao.id);
+  };
+
+  const atualizarTituloDaLicaoSelecionada = (novoTitulo: string) => {
+    if (!data || !selectedLevelId || !selectedLessonId) return;
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== selectedLevelId) return nivel;
+
+      return {
+        ...nivel,
+        lessons: nivel.lessons.map((licao) => {
+          if (licao.id !== selectedLessonId) return licao;
+          return {
+            ...licao,
+            title: novoTitulo
+          };
+        })
+      };
+    });
+
+    void syncContent(niveisAtualizados);
+  };
+
+  const adicionarExercicioNaLicaoSelecionada = () => {
+    if (!data || !selectedLevelId || !selectedLessonId) return;
+
+    const novoExercicio: Exercise = {
+      id: `e-${Date.now()}`,
+      type: 'translate',
+      question: '',
+      answer: '',
+      options: ['', '', '', ''],
+      xp: 10
+    };
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== selectedLevelId) return nivel;
+
+      return {
+        ...nivel,
+        lessons: nivel.lessons.map((licao) => {
+          if (licao.id !== selectedLessonId) return licao;
+          return {
+            ...licao,
+            exercises: [...licao.exercises, novoExercicio]
+          };
+        })
+      };
+    });
+
+    void syncContent(niveisAtualizados);
+  };
+
+  const removerLicaoSelecionada = () => {
+    if (!data || !selectedLevelId || !selectedLessonId) return;
+
+    const niveisAtualizados = data.levels.map((nivel) => {
+      if (nivel.id !== selectedLevelId) return nivel;
+
+      return {
+        ...nivel,
+        lessons: nivel.lessons.filter((licao) => licao.id !== selectedLessonId)
+      };
+    });
+
+    setIdExercicioSeletorTipoAberto(null);
+    setSelectedLessonId(null);
+    void syncContent(niveisAtualizados);
   };
 
   const syncUsers = async (updatedUsers: User[]) => {
@@ -1259,9 +2126,13 @@ export default function Admin() {
     turma.name.toLowerCase().includes(buscaTurmaProfessor.toLowerCase())
   );
 
+  const jogoSelecionadoEhBattleMode = jogoPlaygroundSelecionado?.slug === SLUG_JOGO_BATTLE_MODE_V1;
   const fasesNivelPlaygroundSelecionado = fasesPlaygroundImagem
     .filter((fase) => fase.nivel === nivelPlaygroundSelecionado)
     .sort((a, b) => a.ordem - b.ordem);
+  const perguntasNivelBattleModeSelecionado = perguntasPlaygroundBattleMode
+    .filter((pergunta) => pergunta.nivel === nivelPlaygroundSelecionado)
+    .sort((perguntaA, perguntaB) => perguntaA.ordem - perguntaB.ordem);
 
   const adicionarFasePlaygroundNoNivel = () => {
     const proximaOrdem =
@@ -1282,6 +2153,26 @@ export default function Admin() {
     ]);
   };
 
+  const adicionarPerguntaBattleModeNoNivel = () => {
+    const proximaOrdem =
+      perguntasPlaygroundBattleMode
+        .filter((pergunta) => pergunta.nivel === nivelPlaygroundSelecionado)
+        .reduce((maiorOrdem, pergunta) => Math.max(maiorOrdem, pergunta.ordem), -1) + 1;
+
+    setPerguntasPlaygroundBattleMode((estadoAtual) => [
+      ...estadoAtual,
+      {
+        id: `nova-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        nivel: nivelPlaygroundSelecionado,
+        ordem: proximaOrdem,
+        pergunta: '',
+        opcoes: ['', '', '', ''],
+        respostaCorreta: '',
+        ativo: true
+      }
+    ]);
+  };
+
   const atualizarCampoFasePlayground = (
     idFase: string,
     campo: keyof FasePlaygroundFormulario,
@@ -1294,6 +2185,36 @@ export default function Admin() {
 
   const removerFasePlayground = (idFase: string) => {
     setFasesPlaygroundImagem((estadoAtual) => estadoAtual.filter((fase) => fase.id !== idFase));
+  };
+
+  const atualizarCampoPerguntaBattleMode = (
+    idPergunta: string,
+    campo: keyof Omit<PerguntaBattleModeFormulario, 'id' | 'opcoes'>,
+    valor: string | number | boolean
+  ) => {
+    setPerguntasPlaygroundBattleMode((estadoAtual) =>
+      estadoAtual.map((pergunta) => {
+        if (pergunta.id !== idPergunta) return pergunta;
+        return { ...pergunta, [campo]: valor };
+      })
+    );
+  };
+
+  const atualizarOpcaoPerguntaBattleMode = (idPergunta: string, indiceOpcao: number, valor: string) => {
+    setPerguntasPlaygroundBattleMode((estadoAtual) =>
+      estadoAtual.map((pergunta) => {
+        if (pergunta.id !== idPergunta) return pergunta;
+        const opcoesAtualizadas = [...pergunta.opcoes];
+        opcoesAtualizadas[indiceOpcao] = valor;
+        return { ...pergunta, opcoes: opcoesAtualizadas };
+      })
+    );
+  };
+
+  const removerPerguntaBattleMode = (idPergunta: string) => {
+    setPerguntasPlaygroundBattleMode((estadoAtual) =>
+      estadoAtual.filter((pergunta) => pergunta.id !== idPergunta)
+    );
   };
 
   const abrirUploadImagemFasePlayground = (idFase: string) => {
@@ -1387,12 +2308,12 @@ export default function Admin() {
       );
       setJogosPlaygroundDisponiveis((estadoAtual) =>
         estadoAtual.map((jogo) => {
-          if (jogo.slug !== 'traduzir-imagem') return jogo;
+          if (jogo.slug !== SLUG_JOGO_TRADUZIR_IMAGEM) return jogo;
           return { ...jogo, totalFases: fasesRecebidas.length };
         })
       );
       setJogoPlaygroundSelecionado((estadoAtual) => {
-        if (!estadoAtual || estadoAtual.slug !== 'traduzir-imagem') return estadoAtual;
+        if (!estadoAtual || estadoAtual.slug !== SLUG_JOGO_TRADUZIR_IMAGEM) return estadoAtual;
         return { ...estadoAtual, totalFases: fasesRecebidas.length };
       });
       setErroPlayground('');
@@ -1404,6 +2325,162 @@ export default function Admin() {
     } finally {
       setSalvandoPlayground(false);
     }
+  };
+
+  const salvarPlaygroundBattleMode = async () => {
+    if (salvandoPlayground) return;
+
+    const tipoResposta = configuracaoBattleModePlayground.tipoResposta.trim();
+    const duracaoSegundos = converterDuracaoBattleModeParaSegundos(configuracaoBattleModePlayground.duracao);
+    const perguntasNormalizadas = perguntasPlaygroundBattleMode
+      .map((pergunta, indicePergunta) => {
+        const opcoesNormalizadas = pergunta.opcoes.map((opcao) => opcao.trim()).filter((opcao) => opcao.length > 0);
+        const respostaCorretaNormalizada = pergunta.respostaCorreta.trim();
+        return {
+          ...pergunta,
+          nivel: Number(pergunta.nivel) || 1,
+          ordem: Number.isFinite(Number(pergunta.ordem)) ? Number(pergunta.ordem) : indicePergunta,
+          pergunta: pergunta.pergunta.trim(),
+          opcoes: opcoesNormalizadas,
+          respostaCorreta: respostaCorretaNormalizada
+        };
+      })
+      .sort((perguntaA, perguntaB) => perguntaA.nivel - perguntaB.nivel || perguntaA.ordem - perguntaB.ordem);
+
+    if (!tipoResposta) {
+      setSucessoPlayground('');
+      setErroPlayground('Informe o tipo de resposta do Battle Mode.');
+      return;
+    }
+
+    if (perguntasNormalizadas.length === 0) {
+      setSucessoPlayground('');
+      setErroPlayground('Cadastre ao menos uma pergunta para o Battle Mode.');
+      return;
+    }
+
+    const perguntaSemEnunciado = perguntasNormalizadas.find((pergunta) => !pergunta.pergunta);
+    if (perguntaSemEnunciado) {
+      setSucessoPlayground('');
+      setErroPlayground('Todas as perguntas precisam de enunciado.');
+      return;
+    }
+
+    const perguntaSemOpcoesSuficientes = perguntasNormalizadas.find((pergunta) => pergunta.opcoes.length < 2);
+    if (perguntaSemOpcoesSuficientes) {
+      setSucessoPlayground('');
+      setErroPlayground('Cada pergunta precisa de pelo menos 2 opções.');
+      return;
+    }
+
+    const perguntaSemRespostaCorreta = perguntasNormalizadas.find(
+      (pergunta) => !pergunta.respostaCorreta || !pergunta.opcoes.includes(pergunta.respostaCorreta)
+    );
+    if (perguntaSemRespostaCorreta) {
+      setSucessoPlayground('');
+      setErroPlayground('A resposta correta deve existir nas opções da pergunta.');
+      return;
+    }
+
+    setSalvandoPlayground(true);
+    setErroPlayground('');
+    setSucessoPlayground('');
+    try {
+      const resposta = await fetch('/api/playground/admin/battle-mode-v1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoResposta,
+          duracaoSegundos,
+          perguntas: perguntasNormalizadas
+        })
+      });
+
+      if (!resposta.ok) {
+        const dadosErro = await resposta.json().catch(() => null);
+        setSucessoPlayground('');
+        setErroPlayground(dadosErro?.error || 'Não foi possível salvar o Battle Mode v1.');
+        return;
+      }
+
+      const dados = await resposta.json();
+      const perguntasRecebidas = Array.isArray(dados?.jogo?.fasesBattleMode) ? dados.jogo.fasesBattleMode : [];
+      const configuracaoRecebida = dados?.jogo?.configuracaoBattleMode || {};
+      setPerguntasPlaygroundBattleMode(
+        perguntasRecebidas.map((pergunta: any) => ({
+          id: String(pergunta?.id || `nova-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+          nivel: Number(pergunta?.nivel) || 1,
+          ordem: Number(pergunta?.ordem) || 0,
+          pergunta: String(pergunta?.pergunta || ''),
+          opcoes: Array.isArray(pergunta?.opcoes)
+            ? pergunta.opcoes.map((opcao: any) => String(opcao || ''))
+            : ['', '', '', ''],
+          respostaCorreta: String(pergunta?.respostaCorreta || ''),
+          ativo: pergunta?.ativo !== false
+        }))
+      );
+      setConfiguracaoBattleModePlayground({
+        tipoResposta:
+          typeof configuracaoRecebida?.tipoResposta === 'string' &&
+          configuracaoRecebida.tipoResposta.trim().length > 0
+            ? configuracaoRecebida.tipoResposta.trim()
+            : TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+        duracao: formatarDuracaoBattleMode(
+          Number(configuracaoRecebida?.duracaoSegundos) || DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS
+        )
+      });
+
+      setJogosPlaygroundDisponiveis((estadoAtual) =>
+        estadoAtual.map((jogo) => {
+          if (jogo.slug !== SLUG_JOGO_BATTLE_MODE_V1) return jogo;
+          return {
+            ...jogo,
+            totalFases: perguntasRecebidas.length,
+            configuracaoBattleMode: {
+              tipoResposta:
+                typeof configuracaoRecebida?.tipoResposta === 'string' &&
+                configuracaoRecebida.tipoResposta.trim().length > 0
+                  ? configuracaoRecebida.tipoResposta.trim()
+                  : TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+              duracaoSegundos:
+                Number(configuracaoRecebida?.duracaoSegundos) || DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS
+            }
+          };
+        })
+      );
+      setJogoPlaygroundSelecionado((estadoAtual) => {
+        if (!estadoAtual || estadoAtual.slug !== SLUG_JOGO_BATTLE_MODE_V1) return estadoAtual;
+        return {
+          ...estadoAtual,
+          totalFases: perguntasRecebidas.length,
+          configuracaoBattleMode: {
+            tipoResposta:
+              typeof configuracaoRecebida?.tipoResposta === 'string' &&
+              configuracaoRecebida.tipoResposta.trim().length > 0
+                ? configuracaoRecebida.tipoResposta.trim()
+                : TIPO_RESPOSTA_PADRAO_BATTLE_MODE,
+            duracaoSegundos:
+              Number(configuracaoRecebida?.duracaoSegundos) || DURACAO_PADRAO_BATTLE_MODE_SEGUNDOS
+          }
+        };
+      });
+      setErroPlayground('');
+      setSucessoPlayground('Battle Mode v1 salvo com sucesso!');
+    } catch (erro) {
+      console.error(erro);
+      setSucessoPlayground('');
+      setErroPlayground('Erro de conexão ao salvar Battle Mode v1.');
+    } finally {
+      setSalvandoPlayground(false);
+    }
+  };
+
+  const salvarJogoPlaygroundSelecionado = async () => {
+    if (jogoSelecionadoEhBattleMode) {
+      await salvarPlaygroundBattleMode();
+      return;
+    }
+    await salvarPlaygroundImagem();
   };
   
   const atualizarBuscaTopbarAlunos = (textoBusca: string) => {
@@ -1513,6 +2590,46 @@ export default function Admin() {
 
   const formatarNumeroDashboard = (valor: number) => valor.toLocaleString('pt-BR');
 
+  const moduloConteudoSelecionado = modulosConteudoRepositorio.find(
+    (modulo) => modulo.id === idModuloConteudoSelecionado
+  ) || null;
+  const licoesDoModuloSelecionado = moduloConteudoSelecionado?.licoes || [];
+  const licaoConteudoSelecionada = licoesDoModuloSelecionado.find(
+    (licao) => licao.id === idLicaoConteudoSelecionada
+  ) || null;
+  const moduloImportacaoConteudoSelecionado = modulosImportacaoConteudo.find(
+    (modulo) => modulo.id === idModuloImportacaoConteudoSelecionado
+  ) || null;
+  const licoesModuloImportacaoSelecionado = moduloImportacaoConteudoSelecionado?.lessons || [];
+  const licaoImportacaoConteudoSelecionada = licoesModuloImportacaoSelecionado.find(
+    (licao) => licao.id === idLicaoImportacaoConteudoSelecionada
+  ) || null;
+  const totalModulosImportacaoConteudo = modulosImportacaoConteudo.length;
+  const totalLicoesImportacaoConteudo = modulosImportacaoConteudo.reduce(
+    (acumulado, modulo) => acumulado + modulo.lessons.length,
+    0
+  );
+  const totalExerciciosImportacaoConteudo = modulosImportacaoConteudo.reduce(
+    (acumulado, modulo) =>
+      acumulado + modulo.lessons.reduce((acumuladoLicoes, licao) => acumuladoLicoes + licao.exercises.length, 0),
+    0
+  );
+  const conjuntoLicoesSelecionadasImportacaoConteudo = new Set(idsLicoesSelecionadasImportacaoConteudo);
+  const totalLicoesSelecionadasImportacaoConteudo = idsLicoesSelecionadasImportacaoConteudo.length;
+  const totalExerciciosSelecionadosImportacaoConteudo = modulosImportacaoConteudo.reduce(
+    (acumulado, modulo) =>
+      acumulado +
+      modulo.lessons.reduce((acumuladoLicoes, licao) => {
+        if (!conjuntoLicoesSelecionadasImportacaoConteudo.has(licao.id)) return acumuladoLicoes;
+        return acumuladoLicoes + licao.exercises.length;
+      }, 0),
+    0
+  );
+  const licaoSelecionadaNoEditor =
+    selectedLevelId && selectedLessonId
+      ? data?.levels.find((nivel) => nivel.id === selectedLevelId)?.lessons.find((licao) => licao.id === selectedLessonId) || null
+      : null;
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -1540,6 +2657,7 @@ export default function Admin() {
         <nav className="flex-1 space-y-4">
           <SidebarLink icon={LineChart} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <SidebarLink icon={Layout} label="Conteúdo" active={activeTab === 'content'} onClick={() => setActiveTab('content')} />
+          <SidebarLink icon={Archive} label="Repositório" active={activeTab === 'repository'} onClick={() => setActiveTab('repository')} />
           <SidebarLink icon={Trophy} label="Conquistas" active={activeTab === 'achievements'} onClick={() => setActiveTab('achievements')} />
           <SidebarLink icon={UserIcon} label="Alunos" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
           <SidebarLink icon={Presentation} label="Turmas" active={activeTab === 'rooms'} onClick={() => setActiveTab('rooms')} />
@@ -1723,7 +2841,7 @@ export default function Admin() {
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                   <div className="xl:col-span-2 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[3rem] p-8 md:p-10 overflow-hidden shadow-xl">
                     <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2 tracking-tight">Top 10 Engajamento</h3>
-                    <p className="text-sm font-bold text-slate-400 mb-6">Ranking atualizado com o XP vindo da API.</p>
+                    <p className="text-sm font-bold text-slate-400 mb-6">Ranking atualizado com o XP dos alunos.</p>
                     <div className="h-96 w-full">
                       {dadosTopEngajamento.length === 0 ? (
                         <div className="h-full rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm font-bold text-slate-400">
@@ -1742,7 +2860,7 @@ export default function Admin() {
                             />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 900 }} />
                             <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} />
-                            <Bar dataKey="pontos" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={42} />
+                            <Bar dataKey="pontos" name="XP" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={42} />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -1976,6 +3094,271 @@ export default function Admin() {
 
             {activeTab === 'content' && (
               <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+                <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 md:p-8 shadow-sm">
+                  <input
+                    ref={inputArquivoImportacaoConteudoRef}
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={(evento) => {
+                      void processarArquivoImportacaoConteudo(evento);
+                    }}
+                    className="hidden"
+                  />
+
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Importação em lote</p>
+                      <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">Importar Conteúdos via JSON</h3>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-2 max-w-3xl">
+                        Carregue um JSON, revise módulos/lições/perguntas e confirme para instalar no banco sem apagar o conteúdo já existente.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={abrirSeletorArquivoImportacaoConteudo}
+                        className="bg-blue-500 hover:bg-blue-400 text-white font-black px-6 py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Selecionar JSON
+                      </button>
+                      <a
+                        href="/modelos/importacao-conteudos-base.json"
+                        download
+                        className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-black px-6 py-4 rounded-2xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <Archive className="h-4 w-4" />
+                        Baixar JSON base
+                      </a>
+                      <a
+                        href="/modelos/pacote-instalacao-conteudos-ingles-2026.04.21-v1.json"
+                        download
+                        className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-black px-6 py-4 rounded-2xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <Archive className="h-4 w-4" />
+                        Baixar JSON 20x20x7
+                      </a>
+                    </div>
+                  </div>
+
+                  {nomeArquivoImportacaoConteudo && (
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 px-4 py-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Arquivo carregado</p>
+                      <p className="text-xs font-black text-blue-700 dark:text-blue-200">{nomeArquivoImportacaoConteudo}</p>
+                    </div>
+                  )}
+
+                  {erroImportacaoConteudo && (
+                    <div className="mt-5 bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/20 p-4 rounded-2xl text-red-600 dark:text-red-300 font-bold text-sm">
+                      {erroImportacaoConteudo}
+                    </div>
+                  )}
+
+                  {modulosImportacaoConteudo.length > 0 && (
+                    <div className="mt-6 space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Módulos</p>
+                          <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalModulosImportacaoConteudo}</p>
+                        </div>
+                        <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Lições no JSON</p>
+                          <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalLicoesImportacaoConteudo}</p>
+                        </div>
+                        <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Perguntas no JSON</p>
+                          <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalExerciciosImportacaoConteudo}</p>
+                        </div>
+                        <div className="rounded-2xl border-2 border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">Selecionado para importar</p>
+                          <p className="text-sm font-black text-blue-700 dark:text-blue-200">
+                            {totalLicoesSelecionadasImportacaoConteudo} lições • {totalExerciciosSelecionadosImportacaoConteudo} perguntas
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 p-3 md:p-4 bg-slate-50/70 dark:bg-slate-800/40">
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                          <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                              Módulos do arquivo ({modulosImportacaoConteudo.length})
+                            </p>
+                            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                              {modulosImportacaoConteudo.map((modulo) => (
+                                <button
+                                  key={modulo.id}
+                                  onClick={() => {
+                                    setIdModuloImportacaoConteudoSelecionado(modulo.id);
+                                    setIdLicaoImportacaoConteudoSelecionada(modulo.lessons[0]?.id || null);
+                                  }}
+                                  className={cn(
+                                    'w-full text-left rounded-xl border-2 px-3 py-3 transition-all',
+                                    idModuloImportacaoConteudoSelecionado === modulo.id
+                                      ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                      : 'border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900/40'
+                                  )}
+                                >
+                                  <p className="text-xs font-black text-slate-700 dark:text-slate-100 truncate">{modulo.title}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-1">
+                                    {modulo.lessons.length} lições • Dificuldade {modulo.difficulty}
+                                  </p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                            <div className="flex items-center justify-between mb-3 gap-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Lições {moduloImportacaoConteudoSelecionado ? `de ${moduloImportacaoConteudoSelecionado.title}` : ''}
+                              </p>
+                              {moduloImportacaoConteudoSelecionado && (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => marcarTodasLicoesImportacaoConteudo(moduloImportacaoConteudoSelecionado.id)}
+                                    className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                  >
+                                    Marcar todas
+                                  </button>
+                                  <button
+                                    onClick={() => desmarcarLicoesImportacaoConteudo(moduloImportacaoConteudoSelecionado.id)}
+                                    className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800"
+                                  >
+                                    Limpar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {moduloImportacaoConteudoSelecionado ? (
+                              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                                {licoesModuloImportacaoSelecionado.map((licao) => {
+                                  const estaSelecionada = conjuntoLicoesSelecionadasImportacaoConteudo.has(licao.id);
+                                  return (
+                                    <button
+                                      key={licao.id}
+                                      onClick={() => setIdLicaoImportacaoConteudoSelecionada(licao.id)}
+                                      className={cn(
+                                        'w-full rounded-xl border-2 px-3 py-3 transition-all text-left',
+                                        idLicaoImportacaoConteudoSelecionada === licao.id
+                                          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                          : 'border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900/40'
+                                      )}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <input
+                                          type="checkbox"
+                                          checked={estaSelecionada}
+                                          onChange={() => alternarSelecaoLicaoImportacaoConteudo(licao.id)}
+                                          onClick={(evento) => evento.stopPropagation()}
+                                          className="mt-1 h-4 w-4 rounded border-slate-300 accent-blue-500"
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-black text-slate-700 dark:text-slate-100 truncate">{licao.title}</p>
+                                          <p className="text-[10px] font-bold text-slate-400 mt-1">{licao.exercises.length} perguntas</p>
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="min-h-40 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-300">
+                                Selecione um módulo para listar as lições.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                              Perguntas e respostas corretas
+                            </p>
+                            {licaoImportacaoConteudoSelecionada ? (
+                              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                                {licaoImportacaoConteudoSelecionada.exercises.map((exercicio, indiceExercicio) => (
+                                  <div
+                                    key={exercicio.id}
+                                    className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-3"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Pergunta {indiceExercicio + 1}
+                                      </p>
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">
+                                        {exercicio.type}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-100 mb-3">
+                                      {exercicio.question}
+                                    </p>
+                                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 px-2.5 py-2">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300 mb-1">
+                                        Resposta correta
+                                      </p>
+                                      <p className="text-xs font-black text-emerald-700 dark:text-emerald-200">
+                                        {exercicio.answer}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="min-h-40 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-300">
+                                Selecione uma lição para visualizar as perguntas.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => {
+                            void importarConteudoJsonSelecionado();
+                          }}
+                          disabled={importandoConteudoJson || idsLicoesSelecionadasImportacaoConteudo.length === 0}
+                          className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black px-6 py-4 rounded-2xl border-b-8 border-emerald-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                        >
+                          {importandoConteudoJson && (
+                            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          )}
+                          Confirmar importação
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setModulosImportacaoConteudo([]);
+                            setNomeArquivoImportacaoConteudo('');
+                            setIdModuloImportacaoConteudoSelecionado(null);
+                            setIdLicaoImportacaoConteudoSelecionada(null);
+                            setIdsLicoesSelecionadasImportacaoConteudo([]);
+                            setErroImportacaoConteudo('');
+                            setResultadoImportacaoConteudo(null);
+                          }}
+                          disabled={importandoConteudoJson}
+                          className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-black px-6 py-4 rounded-2xl transition-all uppercase tracking-widest text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          Limpar pré-visualização
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {resultadoImportacaoConteudo && (
+                    <div className="mt-5 bg-emerald-50 dark:bg-emerald-900/10 border-2 border-emerald-100 dark:border-emerald-900/20 p-5 rounded-2xl">
+                      <p className="text-emerald-700 dark:text-emerald-300 font-black text-sm mb-2">
+                        {resultadoImportacaoConteudo.mensagem}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-700/80 dark:text-emerald-300/80">
+                        Adicionados: {resultadoImportacaoConteudo.resumo.modulosNovosInstalados} módulos,{' '}
+                        {resultadoImportacaoConteudo.resumo.licoesNovasInstaladas} lições e{' '}
+                        {resultadoImportacaoConteudo.resumo.exerciciosNovosInstalados} perguntas. Repetidos ignorados:{' '}
+                        {resultadoImportacaoConteudo.resumo.licoesRepetidasIgnoradas} lições.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-6 items-start">
                   {/* Level Sidebar */}
                   <div className="w-80 space-y-4 shrink-0">
@@ -2089,13 +3472,7 @@ export default function Admin() {
                              ))}
                              <button 
                               onClick={() => {
-                                const newLesson: Lesson = {
-                                  id: `l-${Date.now()}`,
-                                  title: 'Nova Lição',
-                                  exercises: []
-                                };
-                                const updated = levels.map(l => l.id === level.id ? { ...l, lessons: [...l.lessons, newLesson] } : l);
-                                syncContent(updated);
+                                void abrirCadastroNovaLicaoNoModulo(level.id);
                               }}
                               className="p-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3 text-slate-400 font-black hover:border-blue-400 hover:text-blue-500 transition-all group"
                              >
@@ -2110,6 +3487,258 @@ export default function Admin() {
                     <div className="flex-1 h-96 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] flex flex-col items-center justify-center text-slate-400">
                        <Layout className="h-16 w-16 mb-4 opacity-20" />
                        <span className="font-black uppercase tracking-widest text-xs">Selecione um módulo para começar</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'repository' && (
+              <motion.div
+                key="repository"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-10 shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Gestão de Pacotes</p>
+                      <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">Repositório de Conteúdo</h3>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-2xl">
+                        Instale conteúdos em lote e mantenha os módulos sempre atualizados sem apagar o que já foi cadastrado.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => void carregarStatusPacoteRepositorio()}
+                      disabled={carregandoPacoteRepositorio || instalandoPacoteRepositorio}
+                      className="px-5 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {carregandoPacoteRepositorio ? 'Atualizando...' : 'Recarregar status'}
+                    </button>
+                  </div>
+
+                  {carregandoPacoteRepositorio && !resumoPacoteRepositorio ? (
+                    <div className="rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700 p-10 flex flex-col items-center justify-center gap-4 text-slate-500">
+                      <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm font-black uppercase tracking-widest">Carregando pacote...</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-[2rem] border-2 border-blue-100 dark:border-blue-900/30 bg-gradient-to-br from-blue-50 to-sky-50 dark:from-slate-800 dark:to-slate-800/80 p-6 md:p-8">
+                      <div className="flex items-start justify-between gap-6">
+                        <div>
+                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest mb-4">
+                            <Archive className="h-3.5 w-3.5" />
+                            Pacote Oficial
+                          </div>
+                          <h4 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100">
+                            Pacote de Instalação de Conteúdos
+                          </h4>
+                          <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">
+                            {resumoPacoteRepositorio?.descricao || 'Pacote incremental de conteúdos de inglês para instalação em lote.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                        <div className="rounded-2xl bg-white/80 dark:bg-slate-900/70 border-2 border-white dark:border-slate-700 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Módulos no pacote</p>
+                          <p className="text-3xl font-black text-slate-800 dark:text-slate-100">
+                            {resumoPacoteRepositorio?.totalModulos ?? 0}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 dark:bg-slate-900/70 border-2 border-white dark:border-slate-700 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Lições no pacote</p>
+                          <p className="text-3xl font-black text-slate-800 dark:text-slate-100">
+                            {resumoPacoteRepositorio?.totalLicoes ?? 0}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 dark:bg-slate-900/70 border-2 border-white dark:border-slate-700 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Versão</p>
+                          <p className="text-base md:text-lg font-black text-slate-800 dark:text-slate-100">
+                            {resumoPacoteRepositorio?.versaoMaisRecente || '-'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 rounded-2xl bg-white/80 dark:bg-slate-900/70 border-2 border-white dark:border-slate-700 p-4 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
+                          <span>Status de instalação</span>
+                          <span>{statusPacoteRepositorio?.percentualInstalacao ?? 0}%</span>
+                        </div>
+                        <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                            style={{ width: `${statusPacoteRepositorio?.percentualInstalacao ?? 0}%` }}
+                          />
+                        </div>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                          {statusPacoteRepositorio?.estaAtualizado
+                            ? 'Pacote instalado e atualizado.'
+                            : statusPacoteRepositorio?.possuiInstalacao
+                              ? 'Pacote instalado parcialmente. Você pode atualizar para incluir novos conteúdos.'
+                              : 'Pacote ainda não instalado neste ambiente.'}
+                        </p>
+                      </div>
+
+                      <div className="mt-7 flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => void instalarOuAtualizarPacoteRepositorio()}
+                          disabled={carregandoPacoteRepositorio || instalandoPacoteRepositorio}
+                          className="bg-blue-500 hover:bg-blue-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black px-6 py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                        >
+                          {instalandoPacoteRepositorio && (
+                            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          )}
+                          {statusPacoteRepositorio?.possuiInstalacao ? 'Atualizar' : 'Instalar'}
+                        </button>
+
+                        <button
+                          onClick={() => void alternarVisualizacaoConteudoRepositorio()}
+                          disabled={carregandoPacoteRepositorio || carregandoConteudoRepositorio || instalandoPacoteRepositorio}
+                          className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-black px-6 py-4 rounded-2xl transition-all uppercase tracking-widest text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {carregandoConteudoRepositorio
+                            ? 'Carregando conteúdo...'
+                            : conteudoRepositorioVisivel
+                              ? 'Ocultar conteúdo'
+                              : 'Ver conteúdo'}
+                        </button>
+
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          A instalação sempre mescla com o conteúdo atual e nunca remove módulos/lições existentes.
+                        </p>
+                      </div>
+
+                      {conteudoRepositorioVisivel && (
+                        <div className="mt-7 rounded-2xl bg-white/90 dark:bg-slate-900/80 border-2 border-white dark:border-slate-700 p-4 md:p-5">
+                          {carregandoConteudoRepositorio ? (
+                            <div className="min-h-56 flex flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-300">
+                              <div className="h-7 w-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                              <p className="text-xs font-black uppercase tracking-widest">Carregando estrutura do pacote...</p>
+                            </div>
+                          ) : modulosConteudoRepositorio.length === 0 ? (
+                            <div className="min-h-40 flex items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-300">
+                              Nenhum módulo foi encontrado no pacote.
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                              <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                                  Módulos cadastrados ({modulosConteudoRepositorio.length})
+                                </p>
+                                <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                                  {modulosConteudoRepositorio.map((modulo) => (
+                                    <button
+                                      key={modulo.id}
+                                      onClick={() => {
+                                        setIdModuloConteudoSelecionado(modulo.id);
+                                        setIdLicaoConteudoSelecionada(modulo.licoes[0]?.id || null);
+                                      }}
+                                      className={cn(
+                                        'w-full text-left rounded-xl border-2 px-3 py-3 transition-all',
+                                        idModuloConteudoSelecionado === modulo.id
+                                          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-200 dark:hover:border-blue-900/40'
+                                      )}
+                                    >
+                                      <p className="text-xs font-black text-slate-700 dark:text-slate-100 truncate">{modulo.titulo}</p>
+                                      <p className="text-[10px] font-bold text-slate-400 mt-1">
+                                        {modulo.licoes.length} lições • Dificuldade {modulo.dificuldade}
+                                      </p>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                                  Lições {moduloConteudoSelecionado ? `de ${moduloConteudoSelecionado.titulo}` : ''}
+                                </p>
+                                {moduloConteudoSelecionado ? (
+                                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                                    {moduloConteudoSelecionado.licoes.map((licao) => (
+                                      <button
+                                        key={licao.id}
+                                        onClick={() => setIdLicaoConteudoSelecionada(licao.id)}
+                                        className={cn(
+                                          'w-full text-left rounded-xl border-2 px-3 py-3 transition-all',
+                                          idLicaoConteudoSelecionada === licao.id
+                                            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-200 dark:hover:border-blue-900/40'
+                                        )}
+                                      >
+                                        <p className="text-xs font-black text-slate-700 dark:text-slate-100 truncate">{licao.titulo}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 mt-1">{licao.perguntas.length} perguntas</p>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="min-h-40 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-300">
+                                    Selecione um módulo para listar as lições.
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                                  Perguntas e respostas corretas
+                                </p>
+                                {licaoConteudoSelecionada ? (
+                                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                                    {licaoConteudoSelecionada.perguntas.map((pergunta, indice) => (
+                                      <div
+                                        key={pergunta.id}
+                                        className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+                                      >
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                                          Pergunta {indice + 1}
+                                        </p>
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-100 mb-3">
+                                          {pergunta.pergunta}
+                                        </p>
+                                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 px-2.5 py-2">
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300 mb-1">
+                                            Resposta correta
+                                          </p>
+                                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-200">
+                                            {pergunta.respostaCorreta}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="min-h-40 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-300">
+                                    Selecione uma lição para ver perguntas e respostas.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {erroPacoteRepositorio && (
+                    <div className="mt-6 bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/20 p-4 rounded-2xl text-red-600 dark:text-red-300 font-bold text-sm">
+                      {erroPacoteRepositorio}
+                    </div>
+                  )}
+
+                  {resultadoInstalacaoPacoteRepositorio && (
+                    <div className="mt-6 bg-emerald-50 dark:bg-emerald-900/10 border-2 border-emerald-100 dark:border-emerald-900/20 p-5 rounded-2xl">
+                      <p className="text-emerald-700 dark:text-emerald-300 font-black text-sm mb-2">
+                        {resultadoInstalacaoPacoteRepositorio.mensagem}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-700/80 dark:text-emerald-300/80">
+                        Novos itens: {resultadoInstalacaoPacoteRepositorio.resumo.modulosNovosInstalados} módulos,{' '}
+                        {resultadoInstalacaoPacoteRepositorio.resumo.licoesNovasInstaladas} lições e{' '}
+                        {resultadoInstalacaoPacoteRepositorio.resumo.exerciciosNovosInstalados} exercícios.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -2885,12 +4514,12 @@ export default function Admin() {
                           <div>
                             <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">Playground de Jogos</h3>
                             <p className="text-slate-400 font-bold">
-                              Gerencie o jogo <span className="text-blue-500">{jogoPlaygroundSelecionado?.nome || 'Traduza a Imagem'}</span> e suas fases por nível.
+                              Gerencie o jogo <span className="text-blue-500">{jogoPlaygroundSelecionado?.nome || 'Traduza a Imagem'}</span> e seus conteúdos por nível.
                             </p>
                           </div>
                         </div>
                         <button
-                          onClick={salvarPlaygroundImagem}
+                          onClick={salvarJogoPlaygroundSelecionado}
                           disabled={salvandoPlayground}
                           className="bg-blue-500 hover:bg-blue-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-8 py-4 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
                         >
@@ -2900,7 +4529,9 @@ export default function Admin() {
                       </div>
 
                       <div className="space-y-3 mb-8">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Nível das fases</label>
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                          {jogoSelecionadoEhBattleMode ? 'Nível das perguntas' : 'Nível das fases'}
+                        </label>
                         <div className="flex flex-wrap items-center gap-3">
                           {[1, 2, 3, 4, 5].map((nivel) => {
                             const abaAtiva = nivelPlaygroundSelecionado === nivel;
@@ -2921,14 +4552,47 @@ export default function Admin() {
                             );
                           })}
                           <button
-                            onClick={adicionarFasePlaygroundNoNivel}
+                            onClick={jogoSelecionadoEhBattleMode ? adicionarPerguntaBattleModeNoNivel : adicionarFasePlaygroundNoNivel}
                             className="bg-slate-900 dark:bg-slate-800 hover:bg-black dark:hover:bg-slate-700 text-white font-black px-5 py-3 rounded-xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
                           >
                             <Plus className="h-4 w-4" />
-                            Nova Fase
+                            {jogoSelecionadoEhBattleMode ? 'Nova Pergunta' : 'Nova Fase'}
                           </button>
                         </div>
                       </div>
+
+                      {jogoSelecionadoEhBattleMode && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                          <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de resposta</label>
+                            <input
+                              value={configuracaoBattleModePlayground.tipoResposta}
+                              onChange={(evento) =>
+                                setConfiguracaoBattleModePlayground((estadoAtual) => ({
+                                  ...estadoAtual,
+                                  tipoResposta: evento.target.value
+                                }))
+                              }
+                              placeholder="Ex.: Frase correta negativa"
+                              className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Tempo de duração</label>
+                            <input
+                              value={configuracaoBattleModePlayground.duracao}
+                              onChange={(evento) =>
+                                setConfiguracaoBattleModePlayground((estadoAtual) => ({
+                                  ...estadoAtual,
+                                  duracao: evento.target.value
+                                }))
+                              }
+                              placeholder="Ex.: 02:00"
+                              className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {carregandoPlayground ? (
                         <div className="h-40 flex items-center justify-center">
@@ -2936,60 +4600,143 @@ export default function Admin() {
                         </div>
                       ) : (
                         <div className="space-y-5">
-                          {fasesNivelPlaygroundSelecionado.length === 0 && (
-                            <div className="bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-400 font-bold">
-                              Nenhuma fase cadastrada neste nível. Clique em <span className="text-blue-500">Nova Fase</span>.
-                            </div>
-                          )}
-
-                          {fasesNivelPlaygroundSelecionado.map((fase, indice) => (
-                            <div key={fase.id} className="bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-5">
-                              <div className="flex items-center justify-between gap-4 mb-4">
-                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                                  Fase {indice + 1} - Nível {fase.nivel}
-                                </p>
-                                <button
-                                  onClick={() => removerFasePlayground(fase.id)}
-                                  className="text-red-500 hover:text-red-400 font-black text-xs uppercase tracking-widest flex items-center gap-1"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Remover
-                                </button>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                  <div className="h-44 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center">
-                                    {fase.imagem ? (
-                                      <img src={fase.imagem} alt={`Fase ${indice + 1}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <ImagePlus className="h-8 w-8 text-slate-400" />
-                                    )}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => abrirUploadImagemFasePlayground(fase.id)}
-                                    className="w-full bg-blue-500 hover:bg-blue-400 text-white font-black py-3 rounded-xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                    {fase.imagem ? 'Trocar Imagem' : 'Enviar Imagem'}
-                                  </button>
+                          {jogoSelecionadoEhBattleMode ? (
+                            <>
+                              {perguntasNivelBattleModeSelecionado.length === 0 && (
+                                <div className="bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-400 font-bold">
+                                  Nenhuma pergunta cadastrada neste nível. Clique em <span className="text-blue-500">Nova Pergunta</span>.
                                 </div>
+                              )}
 
-                                <div className="space-y-4">
+                              {perguntasNivelBattleModeSelecionado.map((pergunta, indicePergunta) => (
+                                <div key={pergunta.id} className="bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-5 space-y-4">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                      Pergunta {indicePergunta + 1} - Nível {pergunta.nivel}
+                                    </p>
+                                    <button
+                                      onClick={() => removerPerguntaBattleMode(pergunta.id)}
+                                      className="text-red-500 hover:text-red-400 font-black text-xs uppercase tracking-widest flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Remover
+                                    </button>
+                                  </div>
+
                                   <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Tradução Correta</label>
-                                    <input
-                                      value={fase.traducaoCorreta}
-                                      onChange={(evento) => atualizarCampoFasePlayground(fase.id, 'traducaoCorreta', evento.target.value)}
-                                      placeholder="Digite a tradução correta"
-                                      className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Pergunta</label>
+                                    <textarea
+                                      value={pergunta.pergunta}
+                                      onChange={(evento) =>
+                                        atualizarCampoPerguntaBattleMode(pergunta.id, 'pergunta', evento.target.value)
+                                      }
+                                      placeholder="Digite a pergunta"
+                                      className="w-full min-h-[110px] bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500 resize-none"
                                     />
                                   </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[0, 1, 2, 3].map((indiceOpcao) => (
+                                      <div key={`${pergunta.id}-opcao-${indiceOpcao}`} className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                          Opção {indiceOpcao + 1}
+                                        </label>
+                                        <input
+                                          value={pergunta.opcoes[indiceOpcao] || ''}
+                                          onChange={(evento) =>
+                                            atualizarOpcaoPerguntaBattleMode(pergunta.id, indiceOpcao, evento.target.value)
+                                          }
+                                          placeholder={`Digite a opção ${indiceOpcao + 1}`}
+                                          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Resposta correta</label>
+                                    <select
+                                      value={pergunta.respostaCorreta}
+                                      onChange={(evento) =>
+                                        atualizarCampoPerguntaBattleMode(pergunta.id, 'respostaCorreta', evento.target.value)
+                                      }
+                                      className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                                    >
+                                      <option value="">Selecione a opção correta...</option>
+                                      {Array.from(
+                                        new Set(
+                                          pergunta.opcoes
+                                            .map((opcao) => opcao.trim())
+                                            .filter((opcao) => opcao.length > 0)
+                                        )
+                                      ).map((opcaoValida, indiceOpcaoValida) => (
+                                        <option key={`${pergunta.id}-${indiceOpcaoValida}-${opcaoValida}`} value={opcaoValida}>
+                                          {opcaoValida}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          ))}
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              {fasesNivelPlaygroundSelecionado.length === 0 && (
+                                <div className="bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-400 font-bold">
+                                  Nenhuma fase cadastrada neste nível. Clique em <span className="text-blue-500">Nova Fase</span>.
+                                </div>
+                              )}
+
+                              {fasesNivelPlaygroundSelecionado.map((fase, indice) => (
+                                <div key={fase.id} className="bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-5">
+                                  <div className="flex items-center justify-between gap-4 mb-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                      Fase {indice + 1} - Nível {fase.nivel}
+                                    </p>
+                                    <button
+                                      onClick={() => removerFasePlayground(fase.id)}
+                                      className="text-red-500 hover:text-red-400 font-black text-xs uppercase tracking-widest flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Remover
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                      <div className="h-44 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center">
+                                        {fase.imagem ? (
+                                          <img src={fase.imagem} alt={`Fase ${indice + 1}`} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <ImagePlus className="h-8 w-8 text-slate-400" />
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => abrirUploadImagemFasePlayground(fase.id)}
+                                        className="w-full bg-blue-500 hover:bg-blue-400 text-white font-black py-3 rounded-xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                                      >
+                                        <Upload className="h-4 w-4" />
+                                        {fase.imagem ? 'Trocar Imagem' : 'Enviar Imagem'}
+                                      </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                      <div className="space-y-2">
+                                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Tradução Correta</label>
+                                        <input
+                                          value={fase.traducaoCorreta}
+                                          onChange={(evento) => atualizarCampoFasePlayground(fase.id, 'traducaoCorreta', evento.target.value)}
+                                          placeholder="Digite a tradução correta"
+                                          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-xl py-3 px-4 font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -3962,7 +5709,10 @@ export default function Admin() {
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }} 
                 exit={{ opacity: 0 }} 
-                onClick={() => setSelectedLessonId(null)} 
+                onClick={() => {
+                  setIdExercicioSeletorTipoAberto(null);
+                  setSelectedLessonId(null);
+                }} 
                 className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm" 
               />
               <motion.div 
@@ -3971,94 +5721,118 @@ export default function Admin() {
                 exit={{ scale: 0.9, opacity: 0, y: 20 }} 
                 className="relative bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
               >
-                {data?.levels.find(l => l.id === selectedLevelId)?.lessons.find(less => less.id === selectedLessonId) && (
+                {licaoSelecionadaNoEditor && (
                   <>
-                    <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
-                      <div>
+                    <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 space-y-5">
+                      <div className="flex items-center justify-between">
+                        <div>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                          Exercícios: {data.levels.find(l => l.id === selectedLevelId)?.lessons.find(less => less.id === selectedLessonId)?.title}
+                          Cadastro da Lição
                         </h3>
-                        <p className="text-slate-400 font-bold text-sm">Gerencie o conteúdo desta lição</p>
-                      </div>
-                      <div className="flex items-center gap-4">
+                          <p className="text-slate-400 font-bold text-sm">Cadastre o nome da lição e gerencie as perguntas</p>
+                        </div>
                         <button 
                           onClick={() => {
-                            const newEx: Exercise = {
-                              id: `e-${Date.now()}`,
-                              type: 'translate',
-                              question: '',
-                              answer: '',
-                              options: ['', '', '', ''],
-                              xp: 10
-                            };
-                            const updated = data.levels.map(l => {
-                              if (l.id === selectedLevelId) {
-                                return {
-                                  ...l,
-                                  lessons: l.lessons.map(less => less.id === selectedLessonId ? { ...less, exercises: [...less.exercises, newEx] } : less)
-                                };
-                              }
-                              return l;
-                            });
-                            syncContent(updated);
+                            setIdExercicioSeletorTipoAberto(null);
+                            setSelectedLessonId(null);
                           }}
+                          className="p-4 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 rounded-2xl transition-all"
+                        >
+                          <X className="h-6 w-6" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1 block">Nome da lição</label>
+                        <input
+                          value={licaoSelecionadaNoEditor.title}
+                          onChange={(evento) => atualizarTituloDaLicaoSelecionada(evento.target.value)}
+                          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-5 font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 shadow-inner"
+                          placeholder="Ex: Verbos no presente"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <button 
+                          onClick={adicionarExercicioNaLicaoSelecionada}
                           className="bg-green-500 hover:bg-green-400 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-green-500/20"
                         >
                           <Plus className="h-5 w-5" />
                           Novo Exercício
                         </button>
                         <button 
-                          onClick={() => setSelectedLessonId(null)}
-                          className="p-4 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 rounded-2xl transition-all"
+                          onClick={removerLicaoSelecionada}
+                          className="px-5 py-4 bg-white dark:bg-slate-900 border-2 border-red-100 dark:border-red-900/30 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center gap-2"
                         >
-                          <X className="h-6 w-6" />
+                          <Trash2 className="h-4 w-4" />
+                          Excluir lição
                         </button>
                       </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                      {data.levels.find(l => l.id === selectedLevelId)?.lessons.find(less => less.id === selectedLessonId)?.exercises.map((ex, exIdx) => (
+                      {licaoSelecionadaNoEditor.exercises.map((ex, exIdx) => (
                         <div key={ex.id} className="bg-slate-50 dark:bg-slate-800/30 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm">
                           <div className="flex justify-between items-start mb-6">
                              <div className="flex gap-4">
                                 <div className="h-12 w-12 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl flex items-center justify-center font-black text-slate-800 dark:text-slate-100 shadow-sm">
                                    {exIdx + 1}
                                 </div>
-                                <select 
-                                 value={ex.type}
-                                 onChange={(e) => {
-                                   const updated = data.levels.map(l => ({
-                                     ...l,
-                                     lessons: l.lessons.map(less => less.id === selectedLessonId ? {
-                                       ...less,
-                                       exercises: less.exercises.map(exe => exe.id === ex.id ? { ...exe, type: e.target.value as any } : exe)
-                                     } : less)
-                                   }));
-                                   syncContent(updated);
-                                 }}
-                                 className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-6 font-black text-xs uppercase tracking-widest text-blue-500 outline-none focus:border-blue-500 shadow-sm"
-                                >
-                                   <option value="translate">Tradução</option>
-                                   <option value="select">Seleção</option>
-                                   <option value="listen">Audição</option>
-                                    <option value="match">Pares</option>
-                                    <option value="reorder">Ordenação</option>
-                                </select>
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setIdExercicioSeletorTipoAberto((idAtual) => (idAtual === ex.id ? null : ex.id))
+                                    }
+                                    className="min-w-[210px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/80 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 font-black text-xs uppercase tracking-widest text-blue-500 outline-none shadow-sm flex items-center justify-between gap-3 hover:border-blue-200 dark:hover:border-blue-900/40 transition-all"
+                                  >
+                                    <span>{obterRotuloTipoExercicioConteudo(ex.type)}</span>
+                                    <ChevronDown
+                                      className={cn(
+                                        'h-4 w-4 transition-transform',
+                                        idExercicioSeletorTipoAberto === ex.id ? 'rotate-180' : 'rotate-0'
+                                      )}
+                                    />
+                                  </button>
+
+                                  <AnimatePresence>
+                                    {idExercicioSeletorTipoAberto === ex.id && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                                        className="absolute z-30 mt-2 w-full rounded-2xl border-2 border-blue-100 dark:border-blue-900/30 bg-white dark:bg-slate-900 shadow-xl overflow-hidden"
+                                      >
+                                        {OPCOES_TIPO_EXERCICIO_CONTEUDO.map((opcaoTipo) => {
+                                          const estaSelecionada = ex.type === opcaoTipo.valor;
+                                          return (
+                                            <button
+                                              key={opcaoTipo.valor}
+                                              type="button"
+                                              onClick={() => atualizarTipoExercicioDaLicaoSelecionada(ex.id, opcaoTipo.valor)}
+                                              className={cn(
+                                                'w-full text-left px-4 py-3 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-between',
+                                                estaSelecionada
+                                                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
+                                                  : 'text-slate-500 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                              )}
+                                            >
+                                              <span>{opcaoTipo.rotulo}</span>
+                                              {estaSelecionada && <Check className="h-4 w-4" />}
+                                            </button>
+                                          );
+                                        })}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
                              </div>
                              <button 
-                               onClick={() => {
-                                 const updated = data.levels.map(l => ({
-                                   ...l,
-                                   lessons: l.lessons.map(less => less.id === selectedLessonId ? {
-                                     ...less,
-                                     exercises: less.exercises.filter(exe => exe.id !== ex.id)
-                                   } : less)
-                                 }));
-                                 syncContent(updated);
-                               }}
-                               className="p-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-xl text-slate-300 hover:text-red-500 hover:border-red-100 dark:hover:border-red-900/20 transition-all"
+                               onClick={() => removerExercicioDaLicaoSelecionada(ex.id)}
+                               className="px-4 py-3 bg-white dark:bg-slate-800 border-2 border-red-100 dark:border-red-900/30 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center gap-2"
                              >
-                               <Trash2 className="h-5 w-5" />
+                               <Trash2 className="h-4 w-4" />
+                               <span className="text-[10px] font-black uppercase tracking-widest">Remover exercício</span>
                              </button>
                           </div>
 
@@ -4239,7 +6013,10 @@ export default function Admin() {
 
                     <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-end">
                       <button 
-                        onClick={() => setSelectedLessonId(null)}
+                        onClick={() => {
+                          setIdExercicioSeletorTipoAberto(null);
+                          setSelectedLessonId(null);
+                        }}
                         className="bg-slate-800 hover:bg-slate-700 text-white font-black px-10 py-5 rounded-3xl transition-all uppercase tracking-widest"
                       >
                         Concluído
@@ -4860,6 +6637,104 @@ export default function Admin() {
                 </div>
               </motion.div>
             </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {instalandoPacoteRepositorio && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[220] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                className="w-full max-w-2xl rounded-[2.5rem] border-2 border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-8 md:p-10 shadow-2xl"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="h-14 w-14 rounded-2xl bg-blue-500 text-white flex items-center justify-center">
+                    <Archive className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-white">Instalando pacote de conteúdos</h3>
+                    <p className="text-sm font-bold text-slate-300">
+                      Não feche esta tela até a finalização da mesclagem.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 mb-6">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+                    <span>Progresso</span>
+                    <span>{Math.max(0, Math.min(100, progressoInstalacaoPacoteRepositorio))}%</span>
+                  </div>
+                  <div className="h-4 rounded-full bg-slate-700 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 to-cyan-300"
+                      animate={{ width: `${Math.max(0, Math.min(100, progressoInstalacaoPacoteRepositorio))}%` }}
+                      transition={{ ease: 'easeOut', duration: 0.35 }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-slate-200">
+                  <div className="h-5 w-5 border-2 border-slate-200 border-t-transparent rounded-full animate-spin" />
+                  <p className="font-black text-sm">{mensagemInstalacaoPacoteRepositorio || 'Processando instalação...'}</p>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {importandoConteudoJson && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[230] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                className="w-full max-w-2xl rounded-[2.5rem] border-2 border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-8 md:p-10 shadow-2xl"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="h-14 w-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center">
+                    <Upload className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-white">Importando atividades do JSON</h3>
+                    <p className="text-sm font-bold text-slate-300">
+                      Não feche esta tela até a confirmação da importação.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 mb-6">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+                    <span>Progresso</span>
+                    <span>{Math.max(0, Math.min(100, progressoImportacaoConteudoJson))}%</span>
+                  </div>
+                  <div className="h-4 rounded-full bg-slate-700 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-green-400 to-lime-300"
+                      animate={{ width: `${Math.max(0, Math.min(100, progressoImportacaoConteudoJson))}%` }}
+                      transition={{ ease: 'easeOut', duration: 0.35 }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-slate-200">
+                  <div className="h-5 w-5 border-2 border-slate-200 border-t-transparent rounded-full animate-spin" />
+                  <p className="font-black text-sm">{mensagemImportacaoConteudoJson || 'Processando importação...'}</p>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </main>

@@ -1,16 +1,20 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Trophy, SkipForward, Square, AlertCircle, Gamepad2, Crown, Medal, Sparkles, Eye, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Trophy, SkipForward, Square, AlertCircle, Gamepad2, Crown, Medal, Sparkles, Eye, CheckCircle2, Clock3 } from 'lucide-react';
 import { motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useUser } from '@/contexts/UserContext';
+import { SLUG_JOGO_BATTLE_MODE_V1 } from '@/lib/playground-jogos';
 
 type FaseAtualSessao = {
   id: string;
   nivel: number;
   ordem: number;
-  imagem: string;
+  imagem?: string;
+  pergunta?: string;
+  opcoes?: string[];
+  tipoResposta?: string;
   traducaoCorreta?: string;
 };
 
@@ -40,6 +44,13 @@ type DadosSessaoJogoProfessor = {
       slug: string;
       nome: string;
     };
+    cronometro?: {
+      tipoResposta: string;
+      duracaoSegundos: number;
+      segundosRestantes: number;
+      encerraEm: string;
+      tempoEsgotado: boolean;
+    } | null;
     faseAtual: FaseAtualSessao | null;
   };
   placar: Array<{
@@ -59,6 +70,13 @@ type AlunoConectadoSessao = {
 
 function formatarStatusSessao(status: string) {
   return status.replaceAll('_', ' ').trim();
+}
+
+function formatarTempoRestanteCronometro(segundos: number) {
+  const totalSegundos = Math.max(0, Number(segundos) || 0);
+  const minutos = Math.floor(totalSegundos / 60).toString().padStart(2, '0');
+  const segundosFormatados = (totalSegundos % 60).toString().padStart(2, '0');
+  return `${minutos}:${segundosFormatados}`;
 }
 
 function dispararFogosPodio() {
@@ -152,6 +170,7 @@ export default function PaginaSessaoJogoProfessor() {
   const [animacaoPodioExibida, setAnimacaoPodioExibida] = useState(false);
   const [fotoReveladaFaseAtual, setFotoReveladaFaseAtual] = useState(false);
   const [correcaoExibidaFaseAtual, setCorrecaoExibidaFaseAtual] = useState(false);
+  const [segundosRestantesCronometro, setSegundosRestantesCronometro] = useState<number | null>(null);
 
   const roleUsuarioAtual = useMemo(() => (currentUser?.role || '').toUpperCase(), [currentUser?.role]);
   const acessoProfessorPermitido = roleUsuarioAtual === 'PROFESSOR';
@@ -159,6 +178,7 @@ export default function PaginaSessaoJogoProfessor() {
     () => formatarStatusSessao(dadosSessaoJogoProfessor?.sessao?.status || ''),
     [dadosSessaoJogoProfessor?.sessao?.status]
   );
+  const sessaoEhBattleMode = dadosSessaoJogoProfessor?.sessao?.jogo?.slug === SLUG_JOGO_BATTLE_MODE_V1;
   const sessaoEncerrada = dadosSessaoJogoProfessor?.sessao?.status === 'ENCERRADO';
   const top3PodioSessao = useMemo(
     () => (dadosSessaoJogoProfessor?.placar || []).slice(0, 3),
@@ -186,6 +206,10 @@ export default function PaginaSessaoJogoProfessor() {
   );
   const idFaseAtualSessao = dadosSessaoJogoProfessor?.sessao?.faseAtual?.id || '';
   const traducaoCorretaFaseAtual = dadosSessaoJogoProfessor?.sessao?.faseAtual?.traducaoCorreta || '';
+  const perguntaBattleModeFaseAtual = dadosSessaoJogoProfessor?.sessao?.faseAtual?.pergunta || '';
+  const opcoesBattleModeFaseAtual = Array.isArray(dadosSessaoJogoProfessor?.sessao?.faseAtual?.opcoes)
+    ? dadosSessaoJogoProfessor?.sessao?.faseAtual?.opcoes || []
+    : [];
 
   const buscarDadosSessaoJogoProfessor = async () => {
     if (!idSessao) return;
@@ -305,6 +329,26 @@ export default function PaginaSessaoJogoProfessor() {
   }, [acessoProfessorPermitido, currentUser, idSessao]);
 
   useEffect(() => {
+    const encerraEmSessao = dadosSessaoJogoProfessor?.sessao?.cronometro?.encerraEm;
+    if (!encerraEmSessao || !sessaoEhBattleMode || sessaoEncerrada) {
+      setSegundosRestantesCronometro(null);
+      return;
+    }
+
+    const atualizarCronometroSessao = () => {
+      const segundosRestantes = Math.max(
+        0,
+        Math.ceil((new Date(encerraEmSessao).getTime() - Date.now()) / 1000)
+      );
+      setSegundosRestantesCronometro(segundosRestantes);
+    };
+
+    atualizarCronometroSessao();
+    const intervaloCronometro = setInterval(atualizarCronometroSessao, 1000);
+    return () => clearInterval(intervaloCronometro);
+  }, [dadosSessaoJogoProfessor?.sessao?.cronometro?.encerraEm, sessaoEhBattleMode, sessaoEncerrada]);
+
+  useEffect(() => {
     if (!sessaoEncerrada || animacaoPodioExibida) return;
     dispararFogosPodio();
     tocarSomPalmasPodio();
@@ -380,6 +424,19 @@ export default function PaginaSessaoJogoProfessor() {
       setEncerrandoSessaoJogo(false);
     }
   };
+
+  useEffect(() => {
+    if (!sessaoEhBattleMode || sessaoEncerrada) return;
+    if (segundosRestantesCronometro !== 0) return;
+    if (encerrandoSessaoJogo || avancandoFaseSessaoJogo) return;
+    void encerrarSessaoJogoTempoReal();
+  }, [
+    avancandoFaseSessaoJogo,
+    encerrandoSessaoJogo,
+    segundosRestantesCronometro,
+    sessaoEhBattleMode,
+    sessaoEncerrada
+  ]);
 
   if (!currentUser || !acessoProfessorPermitido) {
     return (
@@ -497,6 +554,15 @@ export default function PaginaSessaoJogoProfessor() {
                   ))}
                 </div>
               )}
+
+              <div className="relative z-10 mt-8 flex justify-center">
+                <button
+                  onClick={() => router.push('/teacher/dashboard')}
+                  className="bg-blue-500 hover:bg-blue-400 text-white font-black px-8 py-3 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs"
+                >
+                  Finalizar
+                </button>
+              </div>
             </motion.div>
           ) : (
             <>
@@ -530,91 +596,140 @@ export default function PaginaSessaoJogoProfessor() {
                   </span>
                 </div>
 
-                {dadosSessaoJogoProfessor.sessao.faseAtual ? (
-                  <div className="mt-6 space-y-4">
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-800 bg-slate-950 p-3">
-                      <div className="h-[220px] md:h-[290px] rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-                        {fotoReveladaFaseAtual ? (
-                          <img
-                            src={dadosSessaoJogoProfessor.sessao.faseAtual.imagem}
-                            alt={`Fase ${dadosSessaoJogoProfessor.sessao.faseAtual.ordem}`}
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-center px-8">
-                            <Eye className="h-10 w-10 text-white mb-3" />
-                            <p className="text-white font-black text-xl md:text-2xl">Foto oculta</p>
-                            <p className="text-slate-300 font-bold text-sm mt-1">Clique em revelar foto para iniciar</p>
+                {sessaoEhBattleMode ? (
+                  dadosSessaoJogoProfessor.sessao.faseAtual ? (
+                    <div className="mt-6 space-y-4">
+                      <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-5 md:p-6">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest font-black text-blue-500 mb-2">
+                              {dadosSessaoJogoProfessor.sessao.faseAtual.tipoResposta || dadosSessaoJogoProfessor.sessao.cronometro?.tipoResposta || 'Tipo de resposta'}
+                            </p>
+                            <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 leading-snug">
+                              {perguntaBattleModeFaseAtual || 'Pergunta sem enunciado'}
+                            </h3>
+                            <p className="text-xs font-bold text-slate-500 dark:text-slate-300 mt-2">
+                              Pergunta {dadosSessaoJogoProfessor.sessao.faseAtual.ordem + 1} • Nível {dadosSessaoJogoProfessor.sessao.faseAtual.nivel}
+                            </p>
                           </div>
+                          {typeof segundosRestantesCronometro === 'number' && (
+                            <span className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {formatarTempoRestanteCronometro(segundosRestantesCronometro)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {opcoesBattleModeFaseAtual.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {opcoesBattleModeFaseAtual.map((opcao, indiceOpcao) => (
+                            <div
+                              key={`${dadosSessaoJogoProfessor.sessao.faseAtual?.id || 'fase'}-opcao-${indiceOpcao}`}
+                              className="bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-black text-slate-700 dark:text-slate-100"
+                            >
+                              {opcao}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-6 text-sm font-bold text-slate-400">Nenhuma pergunta ativa no momento.</p>
+                  )
+                ) : (
+                  <>
+                    {dadosSessaoJogoProfessor.sessao.faseAtual ? (
+                      <div className="mt-6 space-y-4">
+                        <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-800 bg-slate-950 p-3">
+                          <div className="h-[220px] md:h-[290px] rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+                            {fotoReveladaFaseAtual ? (
+                              <img
+                                src={dadosSessaoJogoProfessor.sessao.faseAtual.imagem}
+                                alt={`Fase ${dadosSessaoJogoProfessor.sessao.faseAtual.ordem}`}
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-center px-8">
+                                <Eye className="h-10 w-10 text-white mb-3" />
+                                <p className="text-white font-black text-xl md:text-2xl">Foto oculta</p>
+                                <p className="text-slate-300 font-bold text-sm mt-1">Clique em revelar foto para iniciar</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-sm font-bold text-slate-500 dark:text-slate-300">
+                          Fase atual: nível {dadosSessaoJogoProfessor.sessao.faseAtual.nivel} • ordem {dadosSessaoJogoProfessor.sessao.faseAtual.ordem}
+                        </div>
+
+                        {correcaoExibidaFaseAtual && Boolean(traducaoCorretaFaseAtual) && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            className="rounded-2xl border-2 border-emerald-200/60 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 px-6 py-8 text-center"
+                          >
+                            <p className="text-[11px] uppercase tracking-[0.25em] font-black text-emerald-600 dark:text-emerald-300 mb-2">
+                              Palavra correta
+                            </p>
+                            <p className="text-4xl md:text-6xl font-black text-emerald-600 dark:text-emerald-300 break-words">
+                              {traducaoCorretaFaseAtual}
+                            </p>
+                          </motion.div>
                         )}
                       </div>
-                    </div>
-                    <div className="text-sm font-bold text-slate-500 dark:text-slate-300">
-                      Fase atual: nível {dadosSessaoJogoProfessor.sessao.faseAtual.nivel} • ordem {dadosSessaoJogoProfessor.sessao.faseAtual.ordem}
-                    </div>
-
-                    {correcaoExibidaFaseAtual && Boolean(traducaoCorretaFaseAtual) && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="rounded-2xl border-2 border-emerald-200/60 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 px-6 py-8 text-center"
-                      >
-                        <p className="text-[11px] uppercase tracking-[0.25em] font-black text-emerald-600 dark:text-emerald-300 mb-2">
-                          Palavra correta
-                        </p>
-                        <p className="text-4xl md:text-6xl font-black text-emerald-600 dark:text-emerald-300 break-words">
-                          {traducaoCorretaFaseAtual}
-                        </p>
-                      </motion.div>
+                    ) : (
+                      <p className="mt-6 text-sm font-bold text-slate-400">Nenhuma fase ativa no momento.</p>
                     )}
-                  </div>
-                ) : (
-                  <p className="mt-6 text-sm font-bold text-slate-400">Nenhuma fase ativa no momento.</p>
+                  </>
                 )}
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <button
-                    onClick={revelarFotoFaseAtual}
-                    disabled={
-                      !idFaseAtualSessao ||
-                      fotoReveladaFaseAtual ||
-                      avancandoFaseSessaoJogo ||
-                      encerrandoSessaoJogo ||
-                      dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
-                    }
-                    className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-cyan-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    {fotoReveladaFaseAtual ? 'Foto revelada' : 'Revelar foto'}
-                  </button>
-                  <button
-                    onClick={corrigirFaseAtual}
-                    disabled={
-                      !fotoReveladaFaseAtual ||
-                      correcaoExibidaFaseAtual ||
-                      !traducaoCorretaFaseAtual ||
-                      avancandoFaseSessaoJogo ||
-                      encerrandoSessaoJogo ||
-                      dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
-                    }
-                    className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-emerald-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {correcaoExibidaFaseAtual ? 'Correção exibida' : 'Corrigir'}
-                  </button>
-                  <button
-                    onClick={avancarFaseSessaoJogo}
-                    disabled={
-                      !fotoReveladaFaseAtual ||
-                      avancandoFaseSessaoJogo ||
-                      encerrandoSessaoJogo ||
-                      dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
-                    }
-                    className="bg-blue-500 hover:bg-blue-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                    {avancandoFaseSessaoJogo ? 'Avançando...' : 'Avançar fase'}
-                  </button>
+                  {!sessaoEhBattleMode && (
+                    <>
+                      <button
+                        onClick={revelarFotoFaseAtual}
+                        disabled={
+                          !idFaseAtualSessao ||
+                          fotoReveladaFaseAtual ||
+                          avancandoFaseSessaoJogo ||
+                          encerrandoSessaoJogo ||
+                          dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
+                        }
+                        className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-cyan-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        {fotoReveladaFaseAtual ? 'Foto revelada' : 'Revelar foto'}
+                      </button>
+                      <button
+                        onClick={corrigirFaseAtual}
+                        disabled={
+                          !fotoReveladaFaseAtual ||
+                          correcaoExibidaFaseAtual ||
+                          !traducaoCorretaFaseAtual ||
+                          avancandoFaseSessaoJogo ||
+                          encerrandoSessaoJogo ||
+                          dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
+                        }
+                        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-emerald-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {correcaoExibidaFaseAtual ? 'Correção exibida' : 'Corrigir'}
+                      </button>
+                      <button
+                        onClick={avancarFaseSessaoJogo}
+                        disabled={
+                          !fotoReveladaFaseAtual ||
+                          avancandoFaseSessaoJogo ||
+                          encerrandoSessaoJogo ||
+                          dadosSessaoJogoProfessor.sessao.status !== 'EM_ANDAMENTO'
+                        }
+                        className="bg-blue-500 hover:bg-blue-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+                      >
+                        <SkipForward className="h-4 w-4" />
+                        {avancandoFaseSessaoJogo ? 'Avançando...' : 'Avançar fase'}
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={encerrarSessaoJogoTempoReal}
                     disabled={
@@ -625,7 +740,7 @@ export default function PaginaSessaoJogoProfessor() {
                     className="bg-red-500 hover:bg-red-400 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black px-6 py-3 rounded-2xl border-b-8 border-red-700 active:border-b-0 active:translate-y-2 transition-all uppercase tracking-widest text-xs flex items-center gap-2"
                   >
                     <Square className="h-4 w-4" />
-                    {encerrandoSessaoJogo ? 'Encerrando...' : 'Encerrar sessão'}
+                    {encerrandoSessaoJogo ? 'Encerrando...' : sessaoEhBattleMode ? 'Finalizar jogo' : 'Encerrar sessão'}
                   </button>
                 </div>
               </motion.div>

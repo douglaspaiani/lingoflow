@@ -19,6 +19,10 @@ type JogoProfessor = {
   nome: string;
   descricao?: string;
   totalFases: number;
+  configuracaoBattleMode?: {
+    tipoResposta: string;
+    duracaoSegundos: number;
+  } | null;
 };
 
 type SessaoAtivaProfessor = {
@@ -339,8 +343,13 @@ export default function PaginaDashboardTeacher() {
                       <div>
                         <p className="font-black text-slate-800 dark:text-slate-100">{jogo.nome}</p>
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-300 mt-1">
-                          Traduza corretamente conforme a imagem.
+                          {jogo.descricao || 'Jogo em tempo real para a turma.'}
                         </p>
+                        {jogo.configuracaoBattleMode && (
+                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mt-2">
+                            {jogo.configuracaoBattleMode.tipoResposta} • {Math.round(jogo.configuracaoBattleMode.duracaoSegundos / 60)} min
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => abrirModalIniciarJogo(jogo)}

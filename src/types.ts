@@ -146,6 +146,21 @@ export interface JogoFaseImagem {
   ativo?: boolean;
 }
 
+export interface JogoPerguntaBattleMode {
+  id: string;
+  nivel: number;
+  ordem: number;
+  pergunta: string;
+  opcoes: string[];
+  respostaCorreta: string;
+  ativo?: boolean;
+}
+
+export interface ConfiguracaoBattleMode {
+  tipoResposta: string;
+  duracaoSegundos: number;
+}
+
 export interface JogoPlayground {
   id: string;
   slug: string;
@@ -153,6 +168,8 @@ export interface JogoPlayground {
   descricao?: string;
   ativo: boolean;
   fasesImagem: JogoFaseImagem[];
+  fasesBattleMode?: JogoPerguntaBattleMode[];
+  configuracaoBattleMode?: ConfiguracaoBattleMode | null;
 }
 
 export interface SessaoJogoTempoReal {

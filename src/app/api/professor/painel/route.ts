@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ErroSessao, exigirUsuarioAutenticado } from '@/lib/autenticacao';
-import { calcularNivelTurmaPorAlunos } from '@/lib/playground-jogos';
+import {
+  SLUG_JOGO_BATTLE_MODE_V1,
+  SLUG_JOGO_TRADUZIR_IMAGEM,
+  calcularNivelTurmaPorAlunos,
+  lerConfiguracaoBattleMode
+} from '@/lib/playground-jogos';
 import { garantirServidorWebsocketPlayground } from '@/lib/playground-websocket';
 
 export const runtime = 'nodejs';
-
-const SLUG_JOGO_TRADUZIR_IMAGEM = 'traduzir-imagem';
 
 export async function GET() {
   try {
@@ -41,14 +44,20 @@ export async function GET() {
       orderBy: { name: 'asc' }
     });
 
-    const jogo = await prisma.playgroundJogo.findUnique({
-      where: { slug: SLUG_JOGO_TRADUZIR_IMAGEM },
+    const jogos = await prisma.playgroundJogo.findMany({
+      where: {
+        slug: {
+          in: [SLUG_JOGO_TRADUZIR_IMAGEM, SLUG_JOGO_BATTLE_MODE_V1]
+        },
+        ativo: true
+      },
       include: {
         fasesImagem: {
           where: { ativo: true },
           select: { id: true, nivel: true }
         }
-      }
+      },
+      orderBy: { createdAt: 'asc' }
     });
 
     const sessoesAtivas = await prisma.playgroundSessaoJogo.findMany({
@@ -83,18 +92,21 @@ export async function GET() {
         nivelTurma: calcularNivelTurmaPorAlunos(turma.students),
         alunos: turma.students
       })),
-      jogos: jogo
-        ? [
-            {
-              id: jogo.id,
-              slug: jogo.slug,
-              nome: jogo.nome,
-              descricao: jogo.descricao || '',
-              totalFases: jogo.fasesImagem.length,
-              niveisDisponiveis: [...new Set(jogo.fasesImagem.map((fase) => fase.nivel))].sort((a, b) => a - b)
-            }
-          ]
-        : [],
+      jogos: jogos.map((jogo) => ({
+        id: jogo.id,
+        slug: jogo.slug,
+        nome: jogo.nome,
+        descricao:
+          jogo.slug === SLUG_JOGO_BATTLE_MODE_V1
+            ? 'Quiz com perguntas e respostas, cronômetro e pódio em tempo real.'
+            : 'Traduza corretamente conforme a imagem exibida na fase.',
+        totalFases: jogo.fasesImagem.length,
+        niveisDisponiveis: [...new Set(jogo.fasesImagem.map((fase) => fase.nivel))].sort((a, b) => a - b),
+        configuracaoBattleMode:
+          jogo.slug === SLUG_JOGO_BATTLE_MODE_V1
+            ? lerConfiguracaoBattleMode(jogo.descricao)
+            : null
+      })),
       sessoesAtivas
     });
   } catch (erro) {

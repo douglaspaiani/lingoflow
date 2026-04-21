@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ErroSessao, exigirUsuarioAutenticado } from '@/lib/autenticacao';
 import {
+  SLUG_JOGO_BATTLE_MODE_V1,
   LIMITE_MAXIMO_FASES_SESSAO,
   listarFasesOrdenadasSessaoJogo,
   obterPlacarSessaoJogo
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
       where: {
         id: idSessao,
         professorId: usuario.id
+      },
+      include: {
+        jogo: {
+          select: {
+            slug: true
+          }
+        }
       }
     });
 
@@ -38,6 +46,13 @@ export async function POST(req: Request) {
 
     if (sessao.status !== 'EM_ANDAMENTO') {
       return NextResponse.json({ error: 'A sessão já foi encerrada' }, { status: 400 });
+    }
+
+    if (sessao.jogo?.slug === SLUG_JOGO_BATTLE_MODE_V1) {
+      return NextResponse.json(
+        { error: 'O Battle Mode v1 usa cronômetro automático e não permite avançar pergunta manualmente.' },
+        { status: 400 }
+      );
     }
 
     const encerrarSessaoAutomaticamente = async (motivoEncerramento: string) => {

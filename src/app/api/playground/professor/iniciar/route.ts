@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ErroSessao, exigirUsuarioAutenticado } from '@/lib/autenticacao';
 import {
+  SLUG_JOGO_BATTLE_MODE_V1,
   calcularNivelTurmaPorAlunos,
-  LIMITE_MAXIMO_FASES_SESSAO,
+  calcularCronometroSessaoBattleMode,
+  aplicarLimitePadraoDeFasesSessao,
   listarFasesOrdenadasSessaoJogo
 } from '@/lib/playground-jogos';
 import { enviarEventoSessaoPlayground, garantirServidorWebsocketPlayground } from '@/lib/playground-websocket';
@@ -58,7 +60,7 @@ export async function POST(req: Request) {
     // Evita dependência de coluna antiga/ausente da tabela ClassRoom.
     const nivelTurma = calcularNivelTurmaPorAlunos(turma.students);
     const fasesOrdenadasSessao = await listarFasesOrdenadasSessaoJogo(jogo.id, nivelTurma);
-    const fasesLimiteSessao = fasesOrdenadasSessao.slice(0, LIMITE_MAXIMO_FASES_SESSAO);
+    const fasesLimiteSessao = aplicarLimitePadraoDeFasesSessao(jogo.slug, fasesOrdenadasSessao);
     const faseInicial = fasesLimiteSessao[0] || null;
 
     if (!faseInicial) {
@@ -90,11 +92,17 @@ export async function POST(req: Request) {
       }
     });
 
+    const cronometroBattleMode =
+      jogo.slug === SLUG_JOGO_BATTLE_MODE_V1
+        ? calcularCronometroSessaoBattleMode(sessao.iniciadaEm, jogo.descricao)
+        : null;
+
     enviarEventoSessaoPlayground(sessao.id, 'sessao_iniciada', {
       sessaoId: sessao.id,
       turmaId: turma.id,
       jogoSlug: jogo.slug,
       nivelTurma: sessao.nivelTurma,
+      cronometro: cronometroBattleMode,
       faseAtual: sessao.faseAtual
         ? {
             id: sessao.faseAtual.id,
@@ -116,6 +124,7 @@ export async function POST(req: Request) {
         nivelTurma: sessao.nivelTurma,
         status: sessao.status,
         iniciadaEm: sessao.iniciadaEm,
+        cronometro: cronometroBattleMode,
         faseAtual: sessao.faseAtual
       }
     });

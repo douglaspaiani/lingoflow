@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ErroSessao, exigirUsuarioAutenticado } from '@/lib/autenticacao';
-import { normalizarTextoComparacao, obterPlacarSessaoJogo } from '@/lib/playground-jogos';
+import {
+  SLUG_JOGO_BATTLE_MODE_V1,
+  aplicarLimitePadraoDeFasesSessao,
+  calcularCronometroSessaoBattleMode,
+  lerPerguntaBattleMode,
+  listarFasesOrdenadasSessaoJogo,
+  normalizarTextoComparacao,
+  obterPlacarSessaoJogo
+} from '@/lib/playground-jogos';
 import { enviarEventoSessaoPlayground, garantirServidorWebsocketPlayground } from '@/lib/playground-websocket';
 import { avaliarConquistasParaAluno } from '@/lib/conquistas-avaliacao';
 
@@ -16,6 +24,7 @@ export async function POST(req: Request) {
 
     const corpo = await req.json();
     const idSessao = typeof corpo?.sessaoId === 'string' ? corpo.sessaoId : '';
+    const idFaseInformada = typeof corpo?.faseId === 'string' ? corpo.faseId : '';
     const respostaBruta = typeof corpo?.resposta === 'string' ? corpo.resposta : '';
     const resposta = respostaBruta.trim();
 
@@ -31,7 +40,10 @@ export async function POST(req: Request) {
         faseAtual: true,
         jogo: {
           select: {
-            nome: true
+            id: true,
+            slug: true,
+            nome: true,
+            descricao: true
           }
         }
       }
@@ -45,18 +57,72 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'A sessão já foi encerrada' }, { status: 400 });
     }
 
-    if (!sessao.faseAtual) {
-      return NextResponse.json({ error: 'A sessão não possui fase ativa' }, { status: 400 });
-    }
-
     if (!usuario.classRoomId || usuario.classRoomId !== sessao.turmaId) {
       return NextResponse.json({ error: 'Você não pertence à turma desta sessão' }, { status: 403 });
+    }
+
+    const sessaoEhBattleMode = sessao.jogo.slug === SLUG_JOGO_BATTLE_MODE_V1;
+    if (sessaoEhBattleMode) {
+      const cronometroBattleMode = calcularCronometroSessaoBattleMode(sessao.iniciadaEm, sessao.jogo.descricao);
+      if (cronometroBattleMode.tempoEsgotado) {
+        const atualizacaoSessao = await prisma.playgroundSessaoJogo.updateMany({
+          where: {
+            id: sessao.id,
+            status: 'EM_ANDAMENTO'
+          },
+          data: {
+            status: 'ENCERRADO',
+            encerradaEm: new Date()
+          }
+        });
+
+        if (atualizacaoSessao.count > 0) {
+          const placarSessaoEncerrada = await obterPlacarSessaoJogo(idSessao);
+          enviarEventoSessaoPlayground(idSessao, 'sessao_encerrada', {
+            sessaoId: idSessao,
+            placar: placarSessaoEncerrada,
+            top3: placarSessaoEncerrada.slice(0, 3),
+            motivoEncerramento: 'TEMPO_ESGOTADO'
+          });
+        }
+
+        return NextResponse.json(
+          { error: 'Tempo da sessão esgotado. Aguarde o resultado final do pódio.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    let faseDaResposta = sessao.faseAtual;
+    let fasesDisponiveisSessaoBattleMode: Array<{ id: string; nivel: number; ordem: number; imagem: string; traducaoCorreta: string }> = [];
+
+    if (sessaoEhBattleMode) {
+      if (!idFaseInformada) {
+        return NextResponse.json({ error: 'Pergunta inválida para resposta.' }, { status: 400 });
+      }
+
+      const fasesOrdenadasSessao = await listarFasesOrdenadasSessaoJogo(sessao.jogoId, sessao.nivelTurma);
+      fasesDisponiveisSessaoBattleMode = aplicarLimitePadraoDeFasesSessao(
+        sessao.jogo.slug,
+        fasesOrdenadasSessao
+      );
+
+      const faseValidaNaSessao = fasesDisponiveisSessaoBattleMode.find((fase) => fase.id === idFaseInformada);
+      if (!faseValidaNaSessao) {
+        return NextResponse.json({ error: 'Pergunta não pertence a esta sessão.' }, { status: 400 });
+      }
+
+      faseDaResposta = faseValidaNaSessao;
+    }
+
+    if (!faseDaResposta) {
+      return NextResponse.json({ error: 'A sessão não possui fase ativa' }, { status: 400 });
     }
 
     const respostaExistente = await prisma.playgroundRespostaJogo.findFirst({
       where: {
         sessaoId: idSessao,
-        faseId: sessao.faseAtual.id,
+        faseId: faseDaResposta.id,
         alunoId: usuario.id
       }
     });
@@ -65,15 +131,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Você já respondeu esta fase' }, { status: 400 });
     }
 
+    if (sessaoEhBattleMode) {
+      const dadosPergunta = lerPerguntaBattleMode(faseDaResposta);
+      if (dadosPergunta.opcoes.length > 0 && !dadosPergunta.opcoes.includes(resposta)) {
+        return NextResponse.json({ error: 'A resposta enviada não é uma opção válida.' }, { status: 400 });
+      }
+    }
+
     const respostaNormalizada = normalizarTextoComparacao(resposta);
-    const traducaoCorretaNormalizada = normalizarTextoComparacao(sessao.faseAtual.traducaoCorreta);
+    const traducaoCorretaNormalizada = normalizarTextoComparacao(faseDaResposta.traducaoCorreta);
     const acertou = respostaNormalizada === traducaoCorretaNormalizada;
     const pontos = acertou ? 10 : 0;
 
     const respostaCriada = await prisma.playgroundRespostaJogo.create({
       data: {
         sessaoId: idSessao,
-        faseId: sessao.faseAtual.id,
+        faseId: faseDaResposta.id,
         alunoId: usuario.id,
         resposta,
         correta: acertou,
@@ -100,15 +173,64 @@ export async function POST(req: Request) {
 
     const placar = await obterPlacarSessaoJogo(idSessao);
     const novasConquistasDesbloqueadas = await avaliarConquistasParaAluno(usuario.id);
+    let proximaPerguntaBattleMode: null | {
+      id: string;
+      nivel: number;
+      ordem: number;
+      pergunta: string;
+      opcoes: string[];
+      tipoResposta: string;
+    } = null;
+    let progressoBattleModeAluno: null | {
+      totalPerguntas: number;
+      perguntasRespondidas: number;
+      perguntasRestantes: number;
+    } = null;
+
+    if (sessaoEhBattleMode) {
+      const respostasAlunoNaSessao = await prisma.playgroundRespostaJogo.findMany({
+        where: {
+          sessaoId: idSessao,
+          alunoId: usuario.id
+        },
+        select: {
+          faseId: true
+        }
+      });
+      const idsFasesRespondidas = new Set(respostasAlunoNaSessao.map((respostaAluno) => respostaAluno.faseId));
+      const proximaFase = fasesDisponiveisSessaoBattleMode.find(
+        (faseSessao) => !idsFasesRespondidas.has(faseSessao.id)
+      ) || null;
+
+      if (proximaFase) {
+        const dadosProximaPergunta = lerPerguntaBattleMode(proximaFase);
+        proximaPerguntaBattleMode = {
+          id: proximaFase.id,
+          nivel: proximaFase.nivel,
+          ordem: proximaFase.ordem,
+          pergunta: dadosProximaPergunta.pergunta,
+          opcoes: dadosProximaPergunta.opcoes,
+          tipoResposta: dadosProximaPergunta.tipoResposta
+        };
+      }
+
+      progressoBattleModeAluno = {
+        totalPerguntas: fasesDisponiveisSessaoBattleMode.length,
+        perguntasRespondidas: idsFasesRespondidas.size,
+        perguntasRestantes: Math.max(0, fasesDisponiveisSessaoBattleMode.length - idsFasesRespondidas.size)
+      };
+    }
 
     enviarEventoSessaoPlayground(idSessao, 'resposta_registrada', {
       sessaoId: idSessao,
-      faseId: sessao.faseAtual.id,
+      faseId: faseDaResposta.id,
       alunoId: usuario.id,
       nomeAluno: usuario.name,
       acertou,
       pontos,
-      placar
+      placar,
+      jogoSlug: sessao.jogo.slug,
+      progressoBattleModeAluno
     });
 
     return NextResponse.json({
@@ -119,6 +241,8 @@ export async function POST(req: Request) {
         pontos: respostaCriada.pontos
       },
       placar,
+      proximaPerguntaBattleMode,
+      progressoBattleModeAluno,
       novasConquistasDesbloqueadas
     });
   } catch (erro) {

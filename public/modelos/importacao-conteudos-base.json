@@ -1,0 +1,88 @@
+{
+  "slug": "modelo-importacao-conteudos-v1",
+  "nome": "Modelo Base de Importação de Conteúdos",
+  "descricao": "Modelo inicial para importar módulos, lições e exercícios de inglês no painel admin.",
+  "modulos": [
+    {
+      "id": "json-base-modulo-01",
+      "title": "Módulo Base de Inglês",
+      "description": "Estrutura de exemplo com os tipos principais de atividade.",
+      "difficulty": 1,
+      "lessons": [
+        {
+          "id": "json-base-licao-01",
+          "title": "Lição Base com Tipos de Pergunta",
+          "exercises": [
+            {
+              "id": "json-base-ex-translate-01",
+              "type": "translate",
+              "question": "Traduza para inglês: Eu estudo inglês todos os dias.",
+              "answer": "I study English every day.",
+              "options": [
+                "I study English every day.",
+                "I studies English every day.",
+                "I studying English every day.",
+                "I study English every nights."
+              ],
+              "xp": 10
+            },
+            {
+              "id": "json-base-ex-select-01",
+              "type": "select",
+              "question": "Selecione a opção correta para: Nós praticamos com a turma.",
+              "answer": "We practice with the class.",
+              "options": [
+                "We practice with the class.",
+                "We practices with the class.",
+                "We practicing with class.",
+                "We practice in class is."
+              ],
+              "xp": 10
+            },
+            {
+              "id": "json-base-ex-match-01",
+              "type": "match",
+              "question": "Relacione as palavras em português e inglês.",
+              "answer": "casa=house; escola=school; livro=book; água=water",
+              "options": [],
+              "pairs": [
+                {
+                  "left": "casa",
+                  "right": "house"
+                },
+                {
+                  "left": "escola",
+                  "right": "school"
+                },
+                {
+                  "left": "livro",
+                  "right": "book"
+                },
+                {
+                  "left": "água",
+                  "right": "water"
+                }
+              ],
+              "xp": 12
+            },
+            {
+              "id": "json-base-ex-reorder-01",
+              "type": "reorder",
+              "question": "Monte a frase correta em inglês: Eles aprendem com confiança.",
+              "answer": "They learn with confidence.",
+              "options": [
+                "They",
+                "learn",
+                "with",
+                "confidence",
+                "quickly",
+                "today"
+              ],
+              "xp": 11
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

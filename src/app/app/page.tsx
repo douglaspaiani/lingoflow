@@ -376,7 +376,15 @@ export default function Inicio() {
                   const isCompleted = currentUser.completedLessons?.includes(lesson.id) ?? false;
                   const currentGlobalIdx = allLessons.findIndex(al => al.id === lesson.id);
                   const prevLessonId = currentGlobalIdx > 0 ? allLessons[currentGlobalIdx - 1]?.id : null;
-                  const isLocked = currentGlobalIdx > 0 && !isCompleted && !currentUser.completedLessons?.includes(prevLessonId || '');
+                  const licaoLivreParaTodos = lesson.id.startsWith('repo-pacote-ingles-');
+                  const licaoAnteriorConcluida = prevLessonId
+                    ? Boolean(currentUser.completedLessons?.includes(prevLessonId))
+                    : true;
+                  const isLocked =
+                    !licaoLivreParaTodos &&
+                    currentGlobalIdx > 0 &&
+                    !isCompleted &&
+                    !licaoAnteriorConcluida;
                   const curve = Math.sin(lessonIndex * 1.5 + index) * 90;
 
                   const numeroGlobalLicao = startIdx + lessonIndex + 1;

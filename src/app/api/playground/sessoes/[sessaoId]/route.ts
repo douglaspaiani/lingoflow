@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ErroSessao, exigirUsuarioAutenticado } from '@/lib/autenticacao';
-import { obterPlacarSessaoJogo } from '@/lib/playground-jogos';
+import {
+  SLUG_JOGO_BATTLE_MODE_V1,
+  aplicarLimitePadraoDeFasesSessao,
+  calcularCronometroSessaoBattleMode,
+  lerPerguntaBattleMode,
+  listarFasesOrdenadasSessaoJogo,
+  obterPlacarSessaoJogo
+} from '@/lib/playground-jogos';
+import { enviarEventoSessaoPlayground } from '@/lib/playground-websocket';
 import { garantirServidorWebsocketPlayground } from '@/lib/playground-websocket';
 
 export const runtime = 'nodejs';
@@ -17,7 +25,7 @@ export async function GET(_: Request, contexto: { params: Promise<{ sessaoId: st
 
     garantirServidorWebsocketPlayground();
 
-    const sessao = await prisma.playgroundSessaoJogo.findUnique({
+    const sessaoBase = await prisma.playgroundSessaoJogo.findUnique({
       where: { id: sessaoId },
       include: {
         jogo: true,
@@ -44,9 +52,11 @@ export async function GET(_: Request, contexto: { params: Promise<{ sessaoId: st
       }
     });
 
-    if (!sessao) {
+    if (!sessaoBase) {
       return NextResponse.json({ error: 'Sessão não encontrada' }, { status: 404 });
     }
+
+    let sessao = sessaoBase;
 
     const podeVisualizar =
       usuario.role === 'ADMIN' ||
@@ -57,25 +67,157 @@ export async function GET(_: Request, contexto: { params: Promise<{ sessaoId: st
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const placar = await obterPlacarSessaoJogo(sessao.id);
-    const respostaAlunoFaseAtual =
-      usuario.role === 'ALUNO' && sessao.faseAtualId
-        ? await prisma.playgroundRespostaJogo.findFirst({
-            where: {
-              sessaoId: sessao.id,
-              faseId: sessao.faseAtualId,
-              alunoId: usuario.id
-            },
-            select: {
-              id: true,
-              correta: true,
-              pontos: true,
-              resposta: true
-            }
-          })
+    const sessaoEhBattleMode = sessao.jogo.slug === SLUG_JOGO_BATTLE_MODE_V1;
+    let cronometroBattleMode =
+      sessaoEhBattleMode
+        ? calcularCronometroSessaoBattleMode(sessao.iniciadaEm, sessao.jogo.descricao)
         : null;
 
+    if (
+      sessaoEhBattleMode &&
+      sessao.status === 'EM_ANDAMENTO' &&
+      cronometroBattleMode?.tempoEsgotado
+    ) {
+      const atualizacaoSessao = await prisma.playgroundSessaoJogo.updateMany({
+        where: {
+          id: sessao.id,
+          status: 'EM_ANDAMENTO'
+        },
+        data: {
+          status: 'ENCERRADO',
+          encerradaEm: new Date()
+        }
+      });
+
+      if (atualizacaoSessao.count > 0) {
+        const placarTempoEsgotado = await obterPlacarSessaoJogo(sessao.id);
+        enviarEventoSessaoPlayground(sessao.id, 'sessao_encerrada', {
+          sessaoId: sessao.id,
+          placar: placarTempoEsgotado,
+          top3: placarTempoEsgotado.slice(0, 3),
+          motivoEncerramento: 'TEMPO_ESGOTADO'
+        });
+      }
+
+      const sessaoAtualizada = await prisma.playgroundSessaoJogo.findUnique({
+        where: { id: sessao.id },
+        include: {
+          jogo: true,
+          turma: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              students: {
+                where: { role: 'ALUNO' },
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true
+                },
+                orderBy: { name: 'asc' }
+              }
+            }
+          },
+          faseAtual: true,
+          professor: {
+            select: { id: true, name: true }
+          }
+        }
+      });
+
+      if (sessaoAtualizada) {
+        sessao = sessaoAtualizada;
+      }
+
+      cronometroBattleMode = calcularCronometroSessaoBattleMode(sessao.iniciadaEm, sessao.jogo.descricao);
+    }
+
+    const placar = await obterPlacarSessaoJogo(sessao.id);
+
     const exibirTraducaoCorreta = usuario.role === 'PROFESSOR' || usuario.role === 'ADMIN';
+    let respostaAlunoFaseAtual = null as null | {
+      id: string;
+      correta: boolean;
+      pontos: number;
+      resposta: string;
+    };
+    let faseAtualParaResposta = sessao.faseAtual;
+    let progressoBattleModeAluno:
+      | null
+      | {
+          totalPerguntas: number;
+          perguntasRespondidas: number;
+          perguntasRestantes: number;
+        } = null;
+
+    if (usuario.role === 'ALUNO' && sessaoEhBattleMode) {
+      const fasesOrdenadasSessao = await listarFasesOrdenadasSessaoJogo(sessao.jogoId, sessao.nivelTurma);
+      const fasesDisponiveisSessao = aplicarLimitePadraoDeFasesSessao(sessao.jogo.slug, fasesOrdenadasSessao);
+      const respostasAlunoNaSessao = await prisma.playgroundRespostaJogo.findMany({
+        where: {
+          sessaoId: sessao.id,
+          alunoId: usuario.id
+        },
+        select: {
+          faseId: true
+        }
+      });
+
+      const idsFasesRespondidas = new Set(respostasAlunoNaSessao.map((resposta) => resposta.faseId));
+      const proximaFaseNaoRespondida = fasesDisponiveisSessao.find(
+        (faseSessao) => !idsFasesRespondidas.has(faseSessao.id)
+      ) || null;
+      faseAtualParaResposta = proximaFaseNaoRespondida;
+      progressoBattleModeAluno = {
+        totalPerguntas: fasesDisponiveisSessao.length,
+        perguntasRespondidas: idsFasesRespondidas.size,
+        perguntasRestantes: Math.max(0, fasesDisponiveisSessao.length - idsFasesRespondidas.size)
+      };
+    } else if (usuario.role === 'ALUNO' && sessao.faseAtualId) {
+      respostaAlunoFaseAtual = await prisma.playgroundRespostaJogo.findFirst({
+        where: {
+          sessaoId: sessao.id,
+          faseId: sessao.faseAtualId,
+          alunoId: usuario.id
+        },
+        select: {
+          id: true,
+          correta: true,
+          pontos: true,
+          resposta: true
+        }
+      });
+    }
+
+    const faseAtualResposta =
+      faseAtualParaResposta
+        ? (
+            sessaoEhBattleMode
+              ? (() => {
+                  const dadosPergunta = lerPerguntaBattleMode(
+                    faseAtualParaResposta,
+                    cronometroBattleMode?.tipoResposta
+                  );
+                  return {
+                    id: faseAtualParaResposta.id,
+                    nivel: faseAtualParaResposta.nivel,
+                    ordem: faseAtualParaResposta.ordem,
+                    pergunta: dadosPergunta.pergunta,
+                    opcoes: dadosPergunta.opcoes,
+                    tipoResposta: dadosPergunta.tipoResposta,
+                    respostaCorreta: exibirTraducaoCorreta ? dadosPergunta.respostaCorreta : undefined
+                  };
+                })()
+              : {
+                  id: faseAtualParaResposta.id,
+                  nivel: faseAtualParaResposta.nivel,
+                  ordem: faseAtualParaResposta.ordem,
+                  imagem: faseAtualParaResposta.imagem,
+                  traducaoCorreta: exibirTraducaoCorreta ? faseAtualParaResposta.traducaoCorreta : undefined
+                }
+          )
+        : null;
 
     return NextResponse.json({
       sessao: {
@@ -91,18 +233,12 @@ export async function GET(_: Request, contexto: { params: Promise<{ sessaoId: st
           slug: sessao.jogo.slug,
           nome: sessao.jogo.nome
         },
-        faseAtual: sessao.faseAtual
-          ? {
-              id: sessao.faseAtual.id,
-              nivel: sessao.faseAtual.nivel,
-              ordem: sessao.faseAtual.ordem,
-              imagem: sessao.faseAtual.imagem,
-              traducaoCorreta: exibirTraducaoCorreta ? sessao.faseAtual.traducaoCorreta : undefined
-            }
-          : null
+        cronometro: cronometroBattleMode,
+        faseAtual: faseAtualResposta
       },
       placar,
-      respostaAlunoFaseAtual
+      respostaAlunoFaseAtual,
+      progressoBattleModeAluno
     });
   } catch (erro) {
     if (erro instanceof ErroSessao) {
